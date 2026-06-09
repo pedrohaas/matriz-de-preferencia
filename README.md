@@ -3,11 +3,9 @@
 ![Licença](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-concluído-green.svg)
 
-
 Este projeto tem como objetivo desenvolver uma **ferramenta web interativa** para **análise de decisões multicritério**, permitindo ao usuário inserir um problema de decisão, definir critérios e alternativas, escolher métodos de ponderação e visualizar os resultados finais automaticamente.
 
-**[➡️ Acessar a Demonstração](https://lauraimai.github.io/Decision-Matrix/)**
-
+**[➡️ Acessar a Demonstração](https://pedrohaas.github.io/preference-matrix/)**
 
 ---
 
@@ -58,6 +56,7 @@ A **Matriz de Decisão Automatizada** busca facilitar a tomada de decisões comp
 ---
 
 ## 📂 Organização do Projeto
+
 ```
 Decision-Matrix/ # Diretório principal do projeto
 │
@@ -78,33 +77,21 @@ Decision-Matrix/ # Diretório principal do projeto
 ├── libs/ # Bibliotecas externas
 │ └── html2canvas.min.js # Biblioteca para exportação visual
 ```
+
 ---
 
 ## ▶️ Como Executar Localmente
 
-1. **Clone o repositório**
+1. Clone o repositório:
+
    ```bash
    git clone https://github.com/LauraImai/Decision-Matrix.git
    cd Decision-Matrix
    ```
-
-2. **Abra o arquivo index.html em seu navegador (basta dar duplo clique).**
+2. Abra o arquivo index.html em seu navegador (basta dar duplo clique).
 
    Nenhum servidor ou dependência é necessária. O projeto é 100% front-end.
 
-3. **Configure sua Chave de API do Gemini**
-    - Gere sua chave de API gratuita no [Google AI Studio](https://aistudio.google.com/app/apikey).
-    - Configure-a como uma variável de ambiente. **Não cole a chave diretamente no código.**
-      - No Windows (Prompt de Comando):
-        ```sh
-        setx GOOGLE_API_KEY "SUA_CHAVE_DE_API_AQUI"
-        ```
-        (Lembre-se de fechar e reabrir o terminal após executar este comando).
-      - No macOS/Linux:
-        ```sh
-        export GOOGLE_API_KEY="SUA_CHAVE_DE_API_AQUI"
-        ```
-     
 ---
 
 ## Licença
