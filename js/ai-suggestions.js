@@ -95,8 +95,8 @@ Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de imple
     try {
         console.log('Enviando requisição para a API...');
         
-        // Usando a API do Gemini via fetch
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`, {
+        // Usando a API do Gemini via fetch com o nome estável do modelo
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
