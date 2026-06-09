@@ -220,7 +220,23 @@ function updateContextBanner() {
     const descEl = document.getElementById('contextDesc');
     descEl.textContent = desc ? desc : '';
     banner.classList.add('visible');
+
+    // Colapsar API section automaticamente ao sair da apresentação
+    if (currentStep > 1) {
+        const apiSection = document.getElementById('apiConfigSection');
+        if (apiSection && !apiSection.classList.contains('collapsed')) {
+            apiSection.classList.add('collapsed');
+        }
+    }
 }
+
+// Toggle manual da seção de API
+window.toggleApiConfig = function() {
+    const section = document.getElementById('apiConfigSection');
+    if (section) {
+        section.classList.toggle('collapsed');
+    }
+};
 
 // Validação de passos
 function validateCurrentStep() {
