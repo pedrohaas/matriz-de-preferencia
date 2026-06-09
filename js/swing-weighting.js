@@ -11,31 +11,6 @@ function setupWeightingInterface() {
     let html = '';
     
     switch(method) {
-        case 'adhoc':
-            html = `
-                <div class="form-group">
-                    <label>Método Ad-hoc - Atribua pesos diretamente:</label>
-                    <p style="color: #64748b; margin: 10px 0;">
-                        Atribua pesos de 0 a 100 para cada critério. 
-                        <strong>A soma total de todos os pesos deve ser exatamente 100.</strong>
-                    </p>
-                    <div id="adhoc-sum-display" style="background: #f1f5f9; padding: 10px; border-radius: 5px; margin: 10px 0;">
-                        <strong>Soma atual: <span id="current-sum">0</span>/100</strong>
-                        <span id="sum-status" style="margin-left: 10px;"></span>
-                    </div>
-            `;
-            criteria.forEach((criterion, index) => {
-                html += `
-                    <div style="margin: 10px 0;">
-                        <label>${criterion}:</label>
-                        <input type="number" id="adhoc_${index}" min="0" max="100" step="0.01" 
-                               onchange="updateAdhocWeights()" placeholder="0.00 - 100.00">
-                    </div>
-                `;
-            });
-            html += '</div>';
-            break;
-            
         case 'ranksum':
             html = `
                 <div class="form-group">
@@ -101,41 +76,6 @@ function setupWeightingInterface() {
 }
 
 // Funções de atualização de pesos
-function updateAdhocWeights() {
-    let sum = 0;
-    const adhocValues = {};
-    
-    // Coletar todos os valores dos inputs
-    criteria.forEach((criterion, index) => {
-        const input = document.getElementById(`adhoc_${index}`);
-        const value = parseFloat(input.value) || 0;
-        adhocValues[criterion] = value;
-        sum += value;
-    });
-    
-    // Atualizar display da soma
-    const currentSumElement = document.getElementById('current-sum');
-    const statusElement = document.getElementById('sum-status');
-    
-    if (currentSumElement) {
-        currentSumElement.textContent = sum.toFixed(2);
-    }
-    
-    if (statusElement) {
-        if (Math.abs(sum - 100) < 0.01) { // Tolerância pequena para decimais
-            statusElement.innerHTML = '<span style="color: #22c55e;">✓ Correto!</span>';
-            
-            // Só atualizar os pesos se a soma estiver correta
-            criteria.forEach(criterion => {
-                weights[criterion] = adhocValues[criterion] / 100; // Converter para decimal (0-1)
-            });
-        } else if (sum > 100) {
-            statusElement.innerHTML = '<span style="color: #ef4444;">⚠ Soma muito alta</span>';
-        } else {
-            statusElement.innerHTML = '<span style="color: #f59e0b;">⚠ Soma muito baixa</span>';
-        }
-    }
-}
 
 function updateRankSumWeights() {
     const ranks = {};
@@ -655,32 +595,7 @@ function validateWeights() {
     
     // Validações específicas por método
     switch(method) {
-        case 'adhoc':
-            let sum = 0;
-            let allFilled = true;
-            
-            criteria.forEach((criterion, index) => {
-                const input = document.getElementById(`adhoc_${index}`);
-                if (!input || !input.value) {
-                    allFilled = false;
-                    return;
-                }
-                sum += parseFloat(input.value);
-            });
-            
-            if (!allFilled) {
-                showError('Preencha todos os pesos dos critérios.');
-                return false;
-            }
-            
-            if (Math.abs(sum - 100) > 0.01) {
-                showError('A soma dos pesos deve ser exatamente 100.');
-                return false;
-            }
-            break;
-            
 
-            
         case 'swingweighting':
             // Verificar se a alternativa hipotética foi completamente definida
             if (!isWorstAlternativeComplete()) {

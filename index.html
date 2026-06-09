@@ -24,9 +24,14 @@
     <div class="container">
 
         <!-- HEADER -->
-        <div class="header">
-            <h1>Matriz de Preferência</h1>
-            <p>Ferramenta de apoio à decisão multicritério</p>
+        <div class="header" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div class="logo-placeholder" style="width: 140px; height: 50px; background: rgba(255,255,255,0.1); border: 1px dashed rgba(255,255,255,0.4); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; color: rgba(255,255,255,0.8); letter-spacing: 1px;">
+                [ LOGO AQUI ]
+            </div>
+            <div>
+                <h1>Matriz de Preferência</h1>
+                <p>Ferramenta de apoio à decisão multicritério</p>
+            </div>
         </div>
 
         <!-- RÉGUA DE PROGRESSO DOS PASSOS -->
@@ -278,9 +283,8 @@
                     <label for="weightingMethod">Selecione o Método de Pesagem:</label>
                     <select id="weightingMethod">
                         <option value="">Selecione um método...</option>
-                        <option value="adhoc">Ad-hoc — atribuição direta de pesos (1)</option>
+                        <option value="swingweighting">Swing Weighting — método recomendado pelo framework (1)</option>
                         <option value="ranksum">Rank-Sum — ordenação por importância (2)</option>
-                        <option value="swingweighting">Swing — método recomendado pelo framework (3)</option>
                     </select>
                 </div>
 
