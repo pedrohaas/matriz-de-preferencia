@@ -87,7 +87,7 @@ async function sugerirCritériosGemini(titulo, descricao) {
 Título: "${titulo}"
 Descrição: "${descricao}"
 
-Sugira de 3 a 5 critérios relevantes para avaliar as alternativas deste problema de decisão. 
+Sugira obrigatoriamente um mínimo de 2 e no máximo 5 critérios relevantes para avaliar as alternativas deste problema de decisão. 
 Responda APENAS com uma lista separada por vírgulas, sem explicações ou formatação adicional.
 
 Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de implementação`;
