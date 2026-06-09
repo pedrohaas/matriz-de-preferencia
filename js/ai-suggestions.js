@@ -7,8 +7,8 @@ function salvarChaveAPI() {
         return;
     }
     
-    // Validação básica do formato da chave
-    if (!apiKey.startsWith('AIza') || apiKey.length < 20) {
+    // Validação básica do formato da chave (removida verificação de 'AIza' pois o Google pode mudar o prefixo)
+    if (apiKey.length < 20) {
         atualizarStatusAPI('error', '❌ Formato de chave inválido');
         return;
     }
