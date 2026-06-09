@@ -320,6 +320,25 @@
         </div><!-- /.content -->
     </div><!-- /.container -->
 
+    <!-- =====================================================
+         MODAL DE SUGESTÕES DA IA
+         ===================================================== -->
+    <div class="modal-overlay" id="aiSuggestionModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🤖 Sugestões Inteligentes</h3>
+                <p>O assistente analisou o problema e sugeriu os seguintes critérios para sua decisão. Clique para selecionar/deselecionar.</p>
+            </div>
+            <div class="modal-body" id="aiCriteriaContainer">
+                <!-- Chips de critérios serão inseridos aqui dinamicamente -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeAiModal(false)">Ignorar</button>
+                <button class="btn btn-primary" onclick="closeAiModal(true)">Adicionar Selecionados ✨</button>
+            </div>
+        </div>
+    </div>
+
     <footer>
         <div class="footer-inner">
             <div class="footer-section about">

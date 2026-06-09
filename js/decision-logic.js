@@ -1,3 +1,42 @@
+let aiModalResolver = null;
+
+function showAiModal(criteriosSugeridos) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('aiSuggestionModal');
+        const container = document.getElementById('aiCriteriaContainer');
+        container.innerHTML = ''; 
+
+        criteriosSugeridos.forEach(criterio => {
+            const chip = document.createElement('div');
+            chip.className = 'ai-chip selected'; 
+            chip.textContent = criterio.trim();
+            chip.onclick = () => {
+                chip.classList.toggle('selected');
+            };
+            container.appendChild(chip);
+        });
+
+        aiModalResolver = resolve;
+        modal.classList.add('active');
+    });
+}
+
+window.closeAiModal = function(accept) {
+    const modal = document.getElementById('aiSuggestionModal');
+    modal.classList.remove('active');
+
+    if (accept) {
+        const container = document.getElementById('aiCriteriaContainer');
+        const selectedChips = container.querySelectorAll('.ai-chip.selected');
+        const selectedCriteria = Array.from(selectedChips).map(chip => chip.textContent.trim());
+        
+        if (aiModalResolver) aiModalResolver(selectedCriteria);
+    } else {
+        if (aiModalResolver) aiModalResolver(null);
+    }
+    aiModalResolver = null;
+}
+
 // Função para avançar para o próximo passo
 window.nextStep = async function() {
     const activeStep = document.querySelector('.step.active');
@@ -41,21 +80,21 @@ window.nextStep = async function() {
                     nextButton.disabled = false;
                     
                     if (criteriosSugeridos && criteriosSugeridos.length > 0) {
-                        const confirmar = confirm(`A IA sugeriu os seguintes critérios:\n\n${criteriosSugeridos.join(", ")}\n\nDeseja adicionar esses critérios automaticamente?`);
+                        const acceptedCriteria = await showAiModal(criteriosSugeridos);
                         
-                        if (confirmar) {
-                            // Avançar para o step2 primeiro
-                            currentStep = 2;
-                            activeStep.classList.remove('active');
-                            document.getElementById('step2').classList.add('active');
-                            updateProgressBar();
-                            
+                        // Avançar para o step2 primeiro
+                        currentStep = 2;
+                        activeStep.classList.remove('active');
+                        document.getElementById('step2').classList.add('active');
+                        updateProgressBar();
+                        
+                        if (acceptedCriteria && acceptedCriteria.length > 0) {
                             // Adicionar os critérios sugeridos usando a função do sistema
                             if (typeof addCriteriaFromAI === 'function') {
-                                addCriteriaFromAI(criteriosSugeridos);
+                                addCriteriaFromAI(acceptedCriteria);
                             } else {
                                 // Fallback: adicionar diretamente ao array se a função não existir
-                                criteriosSugeridos.forEach(criterio => {
+                                acceptedCriteria.forEach(criterio => {
                                     if (typeof criteria !== 'undefined' && !criteria.includes(criterio)) {
                                         criteria.push(criterio);
                                     }
@@ -66,9 +105,9 @@ window.nextStep = async function() {
                                     updateCriteriaList();
                                 }
                             }
-                            
-                            return; // Sair da função pois já avançamos
                         }
+                        
+                        return; // Sair da função pois já avançamos
                     } else {
                         console.log('Nenhum critério foi retornado pela IA');
                     }
