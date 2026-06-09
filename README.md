@@ -1,9 +1,9 @@
-# 🎯 Matriz de Decisão Automatizada
+# 🎯 Matriz de Decisão Automatizada (Preference Matrix)
 
 ![Licença](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Status](https://img.shields.io/badge/status-concluído-green.svg)
 
-Este projeto tem como objetivo desenvolver uma **ferramenta web interativa** para **análise de decisões multicritério**, permitindo ao usuário inserir um problema de decisão, definir critérios e alternativas, escolher métodos de ponderação e visualizar os resultados finais automaticamente.
+Este projeto tem como objetivo desenvolver uma **ferramenta web interativa** para **análise de decisões multicritério**, guiando o usuário em um processo estruturado para inserir um problema, definir critérios e alternativas, avaliar desempenhos e escolher o melhor método de ponderação. Os resultados finais são exibidos através de um ranking dinâmico com matrizes completas.
 
 **[➡️ Acessar a Demonstração](https://pedrohaas.github.io/preference-matrix/)**
 
@@ -12,95 +12,115 @@ Este projeto tem como objetivo desenvolver uma **ferramenta web interativa** par
 ## 📚 Tabela de Conteúdo
 
 - [Objetivo do Projeto](#-objetivo-do-projeto)
-- [Funcionalidades](#-funcionalidades)
+- [Funcionalidades Principais](#-funcionalidades-principais)
+- [Métodos de Ponderação](#-métodos-de-ponderação)
+- [Sugestões com IA (Gemini)](#-sugestões-com-ia-gemini)
 - [Tecnologias Utilizadas](#️-tecnologias-utilizadas)
 - [Organização do Projeto](#-organização-do-projeto)
 - [Como Executar Localmente](#️-como-executar-localmente)
-- [Licença](#licença)
-- [Autores](#autores)
+- [Licença](#-licença)
+- [Autores](#-autores)
 
 ---
 
 ## 📌 Objetivo do Projeto
 
-A **Matriz de Decisão Automatizada** busca facilitar a tomada de decisões complexas ao guiar o usuário em um processo estruturado, com etapas claras e intuitivas. O sistema é baseado em métodos consagrados de apoio à decisão e pode ser utilizado em contextos acadêmicos, empresariais ou pessoais.
+A **Matriz de Decisão Automatizada** (Preference Matrix) busca facilitar a tomada de decisões complexas. O sistema é baseado em métodos consagrados de apoio à decisão multicritério e foi desenhado para ser utilizado em contextos acadêmicos, empresariais ou até mesmo em decisões pessoais (ex: escolha de software, compra de imóveis, seleção de candidatos, etc).
+
+Através de uma interface passo a passo, o usuário divide o problema em partes menores, reduzindo o viés cognitivo e garantindo maior transparência e consistência matemática na escolha final.
 
 ---
 
-## 🧩 Funcionalidades
+## 🧩 Funcionalidades Principais
 
-- Definição de problemas de decisão personalizados
-- Cadastro de critérios e alternativas
-- Métodos de ponderação:
-  - Ad-hoc
-  - Rank Sum
-  - ROC (Rank Order Centroid)
-  - Swing
-  - Swing Weighting
-- Avaliação comparativa de alternativas
-- Exibição automática do ranking final
-- Salvamento automático das escolhas
-- Sugestões com IA para auxiliar nas definições
-- Exportação visual da matriz final (via `html2canvas`)
+- **Wizard Passo a Passo**: Processo guiado estruturado em passos claros (Apresentação, Critérios, Alternativas, Scores, Pesos e Resultado).
+- **Avaliação de Desempenho Visual (Scores)**: Sistema inteligente que solicita a definição da melhor alternativa (âncora superior), da pior alternativa (âncora inferior) e o posicionamento das demais em relação a elas.
+- **Ajuste Dinâmico de Pesos**: Na tela de resultados, é possível utilizar _sliders_ interativos para alterar o peso dos critérios em tempo real e visualizar imediatamente como isso afeta o ranking, com suporte opcional a **Normalização Automática**.
+- **Salvamento Automático**: O progresso da análise é salvo dinamicamente no `localStorage` do navegador. É possível gerenciar, carregar e excluir matrizes anteriores diretamente pela interface.
+- **Exportação de Resultados**:
+  - Salvar o relatório completo (matriz e ranking) como **Imagem (PNG)**.
+  - Exportar os dados brutos da decisão para **JSON**.
+- **Sugestões Inteligentes com IA**: Integração direta com a API do Google Gemini para sugerir critérios relevantes com base no título e na descrição do problema de decisão.
+
+---
+
+## ⚖️ Métodos de Ponderação
+
+A ferramenta suporta múltiplos métodos para definição do grau de importância dos critérios:
+
+1. **Ad-hoc**: Atribuição direta de pesos. O usuário define os valores percentuais de cada critério livremente, desde que a soma total atinja exatamente 100%.
+2. **Rank-Sum**: O usuário apenas ordena os critérios por grau de importância (do 1º ao último). Os pesos exatos são calculados matematicamente com base nessa ordenação posicional.
+3. **Swing Weighting (Recomendado)**: Um método mais rigoroso onde o usuário analisa uma alternativa hipotética que apresenta o pior cenário possível em todos os critérios. O usuário escolhe qual critério, ao ser melhorado para o nível máximo, traria o maior benefício. Esse critério recebe peso 100, e as melhorias dos demais critérios são comparadas proporcionalmente a este impacto máximo. Ao final, os valores são normalizados.
+
+---
+
+## 🤖 Sugestões com IA (Gemini)
+
+Para ajudar a superar a "síndrome da página em branco" durante a definição dos critérios, a ferramenta oferece uma IA como co-piloto.
+
+**Como utilizar:**
+1. Expanda a aba **"🤖 Configuração da IA"** no topo da página inicial.
+2. Insira sua chave de acesso gratuita da API do **Google Gemini** (que pode ser gerada no [Google AI Studio](https://aistudio.google.com/app/apikey)).
+3. Preencha a descrição do problema e clique para avançar. O sistema consumirá a API e apresentará uma lista de critérios sugeridos que você pode optar por adicionar automaticamente.
+
+*Nota: Sua chave da API é salva exclusivamente de forma local no seu navegador via `localStorage` e é enviada diretamente aos servidores do Google, garantindo sua privacidade.*
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **HTML5**
-- **CSS3**
-- **JavaScript Vanilla**
-- **html2canvas.js**
-- **Arquitetura modular JS (com múltiplos arquivos separados por responsabilidade)**
+- **Frontend Core**: HTML5, CSS3, e JavaScript Vanilla moderno (sem frameworks como React ou Angular, garantindo alta performance e simplicidade).
+- **Bibliotecas Externas**: `html2canvas.min.js` (para a conversão da árvore DOM em imagens PNG exportáveis).
+- **Integrações em Nuvem**: REST API do Google Gemini (acesso direto assíncrono).
+- **Arquitetura**: Sistema modular, com scripts divididos por responsabilidades e domínios.
 
 ---
 
 ## 📂 Organização do Projeto
 
-```
-Decision-Matrix/ # Diretório principal do projeto
+```text
+preference-matrix/
 │
-├── index.html # Página principal da aplicação
-├── style.css # Estilos da interface
+├── index.html           # Página principal com a estrutura SPA
+├── style.css            # Folha de estilos e variáveis do design system
 │
-├── js/ # Scripts principais
-│ ├── main.js # Script principal que inicializa a aplicação
-│ ├── utils.js # Gerencia o fluxo de dados
-│ ├── auto-save.js # Gerencia o salvamento automático dos dados
-│ ├── ai-suggestions.js # Gerencia as sugestões de IA
-│ ├── data-input.js # Gerencia a entrada de dados do usuário
-│ ├── swing-weighting.js # Métodos de ponderação 
-│ ├── comparison.js # Comparação de alternativas
-│ ├── decision-logic.js # Lógica de decisão
-│ └── export-utils.js # Exportação visual da matriz final
+├── js/                  # Scripts e lógicas modulares
+│   ├── main.js             # Inicialização, eventos gerais e state reset
+│   ├── utils.js            # Sistema de notificações Toast
+│   ├── data-input.js       # Gestão do array de critérios e alternativas
+│   ├── comparison.js       # Lógica do assistente de definição de scores (âncoras)
+│   ├── swing-weighting.js  # Algoritmos de cálculo de pesos (Ad-hoc, Rank-Sum, Swing)
+│   ├── decision-logic.js   # Controle de fluxo, validações e cálculo dos resultados
+│   ├── ai-suggestions.js   # Comunicação via Fetch com o Google Gemini
+│   ├── auto-save.js        # Funções do localStorage (salvar/carregar matrizes)
+│   └── export-utils.js     # Rotinas para serialização JSON e exportação de Imagem
 │
-├── libs/ # Bibliotecas externas
-│ └── html2canvas.min.js # Biblioteca para exportação visual
+└── libs/                # Dependências locais
+    └── html2canvas.min.js
 ```
 
 ---
 
 ## ▶️ Como Executar Localmente
 
-1. Clone o repositório:
+Como o projeto possui uma arquitetura 100% *client-side* (estática), nenhuma instalação, compilador de build ou servidor complexo são necessários.
 
+1. Clone o repositório em sua máquina local:
    ```bash
-   git clone https://github.com/LauraImai/Decision-Matrix.git
-   cd Decision-Matrix
+   git clone https://github.com/pedrohaas/preference-matrix.git
+   cd preference-matrix
    ```
-2. Abra o arquivo index.html em seu navegador (basta dar duplo clique).
-
-   Nenhum servidor ou dependência é necessária. O projeto é 100% front-end.
+2. Abra o arquivo `index.html` em qualquer navegador web moderno (duplo clique no arquivo já será suficiente).
 
 ---
 
-## Licença
+## 📜 Licença
 
-Este projeto está licenciado sob a Licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está licenciado sob a Licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes de permissões e uso.
 
 ---
 
-## Autores
+## 👥 Autores
 
 - **Pedro Henrique Alves de Araujo Silva** - [LinkedIn](https://www.linkedin.com/in/opedroalves/)
 - **Laura Rieko Marçal Imai** - [LinkedIn](https://www.linkedin.com/in/laura-rieko-imai/)
