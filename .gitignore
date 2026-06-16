@@ -1,9 +1,11 @@
 # Pasta de imagens de referência (screenshots brutos) — logo já está na pasta e deve ser commitado
-# Descomente a linha abaixo se quiser ignorar toda a pasta images no futuro:
-# images/
+images/
 
 # OS/Editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.docx
+.pdf
+
