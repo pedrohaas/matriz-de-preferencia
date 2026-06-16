@@ -200,22 +200,33 @@ function showComparisonForCriterion() {
                     `;
                 });
 
-                if (!isLastCriterion) {
-                    // Ainda há critérios para avaliar
-                    html += `
-                        </div>
-                        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-                            <button class="btn btn-primary" onclick="nextCriterion()">
-                                Próximo Critério →
-                            </button>
-                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
-                                ↺ Reiniciar este Critério
-                            </button>
-                        </div>
-                    </div>
-                    `;
-                } else {
-                    // Último critério concluído — aviso para usar a navegação
+                // Verificar se TODOS os critérios foram concluídos (não só o atual)
+                const allDone = criteria.every(c => {
+                    if (!comparisonData[c] || !comparisonData[c].best || !comparisonData[c].worst ||
+                        comparisonData[c].bestScore === undefined || comparisonData[c].worstScore === undefined) {
+                        return false;
+                    }
+                    return alternatives.every(a => {
+                        const s = getScoreForAlternative(c, a);
+                        return s !== null && s !== undefined;
+                    });
+                });
+
+                // Critérios ainda pendentes (para listar ao usuário)
+                const pending = criteria.filter((c, idx) => {
+                    if (idx === currentCriterionIndex) return false; // ignora o atual
+                    if (!comparisonData[c] || !comparisonData[c].best || !comparisonData[c].worst ||
+                        comparisonData[c].bestScore === undefined || comparisonData[c].worstScore === undefined) {
+                        return true;
+                    }
+                    return alternatives.some(a => {
+                        const s = getScoreForAlternative(c, a);
+                        return s === null || s === undefined;
+                    });
+                });
+
+                if (allDone) {
+                    // Todos os critérios realmente concluídos
                     html += `
                         </div>
                         <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #edf7f2, #d8f0e4); border-left: 4px solid var(--success); border-radius: var(--radius-sm);">
@@ -229,7 +240,46 @@ function showComparisonForCriterion() {
                         </div>
                     </div>
                     `;
+                } else if (pending.length > 0) {
+                    // Ainda há critérios incompletos — guiar o usuário
+                    const pendingLinks = pending.map(c => {
+                        const idx = criteria.indexOf(c);
+                        return `<button onclick="goToCriterion(${idx})" style="background:var(--secondary);color:#fff;border:none;padding:4px 10px;border-radius:12px;font-size:0.82rem;font-weight:600;cursor:pointer;margin:2px;">${idx+1}. ${c}</button>`;
+                    }).join(' ');
+
+                    html += `
+                        </div>
+                        <div style="margin-top: 14px; padding: 14px; background: linear-gradient(135deg, #fef9ec, #fef3c7); border-left: 4px solid #f59e0b; border-radius: var(--radius-sm);">
+                            <strong style="color: #92400e; display: block; margin-bottom: 6px;">⚠️ Critério concluído, mas ainda faltam outros:</strong>
+                            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${pendingLinks}</div>
+                            <span style="font-size:0.82rem; color:#92400e;">Clique em um critério pendente acima ou use o painel de navegação no topo.</span>
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+                            <button class="btn btn-primary" onclick="goToCriterion(${criteria.indexOf(pending[0])})">
+                                Ir para próximo pendente →
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
+                                ↺ Reiniciar este Critério
+                            </button>
+                        </div>
+                    </div>
+                    `;
+                } else {
+                    // Há próximo critério em sequência
+                    html += `
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+                            <button class="btn btn-primary" onclick="nextCriterion()">
+                                Próximo Critério →
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
+                                ↺ Reiniciar este Critério
+                            </button>
+                        </div>
+                    </div>
+                    `;
                 }
+
             }
         }
     }
