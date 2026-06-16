@@ -14,7 +14,26 @@ function showComparisonForCriterion() {
     const interface_ = document.getElementById('comparisonInterface');
     const criterion = criteria[currentCriterionIndex];
     
-    let html = `
+    // --- Painel de navegação entre critérios ---
+    let navHtml = `<div class="criterion-nav" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1.25rem;">`;
+    criteria.forEach((c, i) => {
+        const done = comparisonData[c] &&
+            comparisonData[c].best &&
+            comparisonData[c].worst &&
+            comparisonData[c].bestScore !== undefined &&
+            comparisonData[c].worstScore !== undefined &&
+            alternatives.every(a => getScoreForAlternative(c, a) !== null && getScoreForAlternative(c, a) !== undefined);
+        const isCurrent = i === currentCriterionIndex;
+        const btnStyle = isCurrent
+            ? `background:var(--primary);color:#fff;border:2px solid var(--primary);`
+            : done
+                ? `background:var(--success, #22c55e);color:#fff;border:2px solid var(--success, #22c55e);`
+                : `background:var(--bg);color:var(--text-dark);border:2px solid var(--border);`;
+        navHtml += `<button onclick="goToCriterion(${i})" style="${btnStyle} padding:5px 12px; border-radius:20px; font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;" title="${c}">${i+1}. ${c.length > 15 ? c.slice(0,13)+'…' : c}${done && !isCurrent ? ' ✓' : ''}</button>`;
+    });
+    navHtml += `</div>`;
+
+    let html = navHtml + `
         <div class="comparison-question">
             <div class="question-text">
                 Critério: ${criterion} (${currentCriterionIndex + 1} de ${criteria.length})
@@ -185,9 +204,14 @@ function showComparisonForCriterion() {
                     // Ainda há critérios para avaliar
                     html += `
                         </div>
-                        <button class="btn btn-primary" style="margin-top: 12px;" onclick="nextCriterion()">
-                            Próximo Critério →
-                        </button>
+                        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+                            <button class="btn btn-primary" onclick="nextCriterion()">
+                                Próximo Critério →
+                            </button>
+                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
+                                ↺ Reiniciar este Critério
+                            </button>
+                        </div>
                     </div>
                     `;
                 } else {
@@ -197,6 +221,11 @@ function showComparisonForCriterion() {
                         <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #edf7f2, #d8f0e4); border-left: 4px solid var(--success); border-radius: var(--radius-sm);">
                             <strong style="color: var(--success); display: block; margin-bottom: 4px;">🎉 Todos os critérios foram avaliados!</strong>
                             Use o botão <strong>"Passo 4 →"</strong> abaixo para continuar para a atribuição de pesos.
+                        </div>
+                        <div style="margin-top:10px;">
+                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
+                                ↺ Reiniciar este Critério
+                            </button>
                         </div>
                     </div>
                     `;
@@ -412,6 +441,16 @@ function getScoreForAlternative(criterion, alternative) {
         return comparisonData[criterion].worstScore;
     }
     return comparisonData[criterion].scores?.[alternative] || null;
+}
+
+function goToCriterion(index) {
+    currentCriterionIndex = index;
+    showComparisonForCriterion();
+}
+
+function resetCriterion(criterion) {
+    comparisonData[criterion] = {};
+    showComparisonForCriterion();
 }
 
 function nextCriterion() {

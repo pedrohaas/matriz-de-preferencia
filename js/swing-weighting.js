@@ -16,9 +16,9 @@ function setupWeightingInterface() {
                 <div class="form-group">
                     <div class="orientation-box" style="margin-bottom: 1rem;">
                         <strong>Método Rank-Sum</strong>
-                        Ordene os critérios pela sua importância relativa. O critério mais importante recebe a posição 1, o segundo mais importante a posição 2, e assim por diante. Os pesos são calculados automaticamente usando a fórmula Rank-Sum.
+                        Ordene os critérios pela sua importância relativa. O objetivo que ocupa a posição mais alta é o de maior preferência. Os pesos são calculados automaticamente usando a fórmula Rank-Sum.
                     </div>
-                    <label>Ordene os critérios por importância (1 = mais importante):</label>
+                    <label>Ordene os critérios por preferência (1 = maior preferência):</label>
             `;
             criteria.forEach((criterion, index) => {
                 html += `
