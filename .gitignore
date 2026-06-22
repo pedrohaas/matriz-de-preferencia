@@ -1,5 +1,5 @@
 # Pasta de imagens de referência (screenshots brutos) — logo já está na pasta e deve ser commitado
-images/
+# images/
 
 # OS/Editor
 .DS_Store
