@@ -59,8 +59,8 @@ body {
 
 /* ---- HEADER ---- */
 .header {
-    background: #dbd9dc;
-    color: var(--primary);
+    background: #002943;
+    color: #ffffff;
     padding: 2rem 2rem;
     text-align: center;
     position: relative;
@@ -72,7 +72,7 @@ body {
     position: absolute;
     top: -40px; right: -40px;
     width: 200px; height: 200px;
-    background: rgba(21,53,87,0.07);
+    background: rgba(255,255,255,0.05);
     border-radius: 50%;
 }
 
@@ -81,7 +81,7 @@ body {
     position: absolute;
     bottom: -60px; left: -30px;
     width: 250px; height: 250px;
-    background: rgba(21,53,87,0.05);
+    background: rgba(255,255,255,0.03);
     border-radius: 50%;
 }
 
@@ -92,16 +92,16 @@ body {
     letter-spacing: -0.5px;
     position: relative;
     z-index: 1;
-    color: var(--primary);
+    color: #ffffff;
 }
 
 .header p {
     font-size: 1rem;
-    opacity: 0.75;
+    opacity: 0.80;
     position: relative;
     z-index: 1;
     font-weight: 400;
-    color: var(--text-mid);
+    color: #c8dff0;
 }
 
 /* ---- STEP PROGRESS BAR (régua de passos) ---- */
