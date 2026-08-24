@@ -588,6 +588,13 @@ function updateSwingWeightingSummary(rawWeights, totalRawWeight) {
 function validateWeights() {
     const method = document.getElementById('weightingMethod').value;
     
+    // Limpar chaves órfãs de critérios que já foram removidos
+    Object.keys(weights).forEach(key => {
+        if (!criteria.includes(key)) {
+            delete weights[key];
+        }
+    });
+    
     if (Object.keys(weights).length !== criteria.length) {
         showError('Complete todas as avaliações de peso dos critérios.');
         return false;

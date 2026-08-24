@@ -39,42 +39,42 @@
 
         <!-- RÉGUA DE PROGRESSO DOS PASSOS -->
         <nav class="step-progress" id="stepProgressBar" aria-label="Progresso dos passos">
-            <div class="step-progress-item" id="prog-item-0">
+            <div class="step-progress-item" id="prog-item-0" onclick="goToStep(1)" style="cursor: pointer;">
                 <div class="step-progress-item-wrap">
                     <div class="step-dot intro active" id="prog-dot-0">●</div>
                     <div class="step-label">Apresentação</div>
                 </div>
             </div>
             <div class="step-connector" id="prog-conn-0"></div>
-            <div class="step-progress-item" id="prog-item-1">
+            <div class="step-progress-item" id="prog-item-1" onclick="goToStep(2)" style="cursor: pointer;">
                 <div class="step-progress-item-wrap">
                     <div class="step-dot" id="prog-dot-1">1</div>
                     <div class="step-label">Critérios</div>
                 </div>
             </div>
             <div class="step-connector" id="prog-conn-1"></div>
-            <div class="step-progress-item" id="prog-item-2">
+            <div class="step-progress-item" id="prog-item-2" onclick="goToStep(3)" style="cursor: pointer;">
                 <div class="step-progress-item-wrap">
                     <div class="step-dot" id="prog-dot-2">2</div>
                     <div class="step-label">Alternativas</div>
                 </div>
             </div>
             <div class="step-connector" id="prog-conn-2"></div>
-            <div class="step-progress-item" id="prog-item-3">
+            <div class="step-progress-item" id="prog-item-3" onclick="goToStep(4)" style="cursor: pointer;">
                 <div class="step-progress-item-wrap">
                     <div class="step-dot" id="prog-dot-3">3</div>
                     <div class="step-label">Scores</div>
                 </div>
             </div>
             <div class="step-connector" id="prog-conn-3"></div>
-            <div class="step-progress-item" id="prog-item-4">
+            <div class="step-progress-item" id="prog-item-4" onclick="goToStep(5)" style="cursor: pointer;">
                 <div class="step-progress-item-wrap">
                     <div class="step-dot" id="prog-dot-4">4</div>
                     <div class="step-label">Pesos</div>
                 </div>
             </div>
             <div class="step-connector" id="prog-conn-4"></div>
-            <div class="step-progress-item" id="prog-item-5">
+            <div class="step-progress-item" id="prog-item-5" onclick="goToStep(6)" style="cursor: pointer;">
                 <div class="step-progress-item-wrap">
                     <div class="step-dot" id="prog-dot-5">5</div>
                     <div class="step-label">Resultado</div>
@@ -210,7 +210,7 @@
 
                 <div class="orientation-box">
                     <strong>📌 O que fazer aqui</strong>
-                    As <em>alternativas</em> são as opções entre as quais o decisor deve escolher — por exemplo, diferentes fornecedores, locais ou projetos. Adicione pelo menos 2 alternativas. Certifique-se de que nenhuma alternativa seja dominada por outra (desempenho inferior em todos os critérios), pois ela pode ser eliminada logo no início.
+                    As <em>alternativas</em> são as opções entre as quais o decisor deve escolher — por exemplo, diferentes fornecedores, locais ou projetos. Pense em todas as possibilidades que poderiam atender ao problema. A análise será mais rica se houver mais alternativas (em torno de 4 a 7 é uma boa referência), no entanto você precisa adicionar pelo menos 2 para prosseguir.
                 </div>
 
                 <div class="form-group">

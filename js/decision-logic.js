@@ -199,9 +199,62 @@ window.prevStep = function() {
     const prevStep = document.getElementById(`step${currentStep}`);
     if (prevStep) {
         prevStep.classList.add('active');
+        
+        // Reconfigurar interfaces se necessário (sem resetar dados)
+        if (currentStep === 4) {
+            setupComparisonInterface();
+        } else if (currentStep === 5) {
+            setupWeightingInterface();
+        }
     } else {
         currentStep = 1;
         document.getElementById('step1').classList.add('active');
+    }
+    
+    updateProgressBar();
+    updateContextBanner();
+};
+
+// Função para navegar diretamente a um passo (via barra de progresso)
+window.goToStep = function(targetStep) {
+    // Só permite ir para passos já completados ou o passo atual
+    if (targetStep > currentStep) {
+        showInfo('Complete o passo atual antes de avançar.');
+        return;
+    }
+    
+    if (targetStep === currentStep) {
+        return; // Já estamos neste passo
+    }
+    
+    if (targetStep < 1 || targetStep > 6) return;
+    
+    const activeStep = document.querySelector('.step.active');
+    if (activeStep) {
+        activeStep.classList.remove('active');
+    }
+    
+    currentStep = targetStep;
+    
+    const step = document.getElementById(`step${currentStep}`);
+    if (step) {
+        step.classList.add('active');
+        
+        // Reconfigurar interfaces se necessário (sem resetar dados)
+        if (currentStep === 4) {
+            setupComparisonInterface();
+        } else if (currentStep === 5) {
+            setupWeightingInterface();
+        } else if (currentStep === 6) {
+            calculateResults();
+        }
+    }
+    
+    // Atualizar listas visuais ao voltar para passos de edição
+    if (currentStep === 2) {
+        updateCriteriaList();
+    } else if (currentStep === 3) {
+        updateAlternativesList();
     }
     
     updateProgressBar();

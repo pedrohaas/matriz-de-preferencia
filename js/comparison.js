@@ -1,10 +1,46 @@
 // Configuração da interface de comparação
 function setupComparisonInterface() {
     currentCriterionIndex = 0;
-    comparisonData = {};
     
+    // Preservar dados existentes — só inicializar critérios novos
+    if (!comparisonData || typeof comparisonData !== 'object') {
+        comparisonData = {};
+    }
+    
+    // Limpar critérios que foram removidos
+    Object.keys(comparisonData).forEach(key => {
+        if (!criteria.includes(key)) {
+            delete comparisonData[key];
+        }
+    });
+    
+    // Limpar alternativas removidas dos dados de cada critério
+    Object.keys(comparisonData).forEach(key => {
+        const cd = comparisonData[key];
+        if (cd.best && !alternatives.includes(cd.best)) {
+            // Best foi removido — resetar este critério
+            comparisonData[key] = {};
+            return;
+        }
+        if (cd.worst && !alternatives.includes(cd.worst)) {
+            // Worst foi removido — resetar este critério
+            comparisonData[key] = {};
+            return;
+        }
+        if (cd.scores) {
+            Object.keys(cd.scores).forEach(alt => {
+                if (!alternatives.includes(alt)) {
+                    delete cd.scores[alt];
+                }
+            });
+        }
+    });
+    
+    // Inicializar apenas critérios novos
     criteria.forEach(criterion => {
-        comparisonData[criterion] = {};
+        if (!comparisonData[criterion]) {
+            comparisonData[criterion] = {};
+        }
     });
     
     showComparisonForCriterion();
@@ -32,6 +68,44 @@ function showComparisonForCriterion() {
         navHtml += `<button onclick="goToCriterion(${i})" style="${btnStyle} padding:5px 12px; border-radius:20px; font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;" title="${c}">${i+1}. ${c.length > 15 ? c.slice(0,13)+'…' : c}${done && !isCurrent ? ' ✓' : ''}</button>`;
     });
     navHtml += `</div>`;
+
+    // --- Painel de gerenciamento (remover critérios/alternativas) ---
+    navHtml += `
+        <div class="management-panel" style="margin-bottom:1.25rem;">
+            <button onclick="toggleManagementPanel()" class="btn btn-secondary btn-small" style="font-size:0.82rem; padding:6px 14px;">
+                ⚙️ Gerenciar Critérios e Alternativas
+            </button>
+            <div id="managementPanelContent" style="display:none; margin-top:12px; padding:16px; background:var(--white); border:2px solid var(--border); border-radius:var(--radius-md);">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                    <div>
+                        <h4 style="color:var(--primary); margin-bottom:8px; font-size:0.95rem;">📋 Critérios (${criteria.length})</h4>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            ${criteria.map((c, i) => `
+                                <div style="display:flex; align-items:center; justify-content:space-between; background:white; padding:8px 10px; border-radius:6px; border-left:3px solid var(--secondary); font-size:0.88rem;">
+                                    <span>${i+1}. ${c}</span>
+                                    ${criteria.length > 2 ? `<button class="remove-btn" onclick="removeCriterionFromStep3(${i})" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>` : '<span style="font-size:0.72rem; color:var(--text-soft);">mín.</span>'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 style="color:var(--primary); margin-bottom:8px; font-size:0.95rem;">🏷️ Alternativas (${alternatives.length})</h4>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            ${alternatives.map((a, i) => `
+                                <div style="display:flex; align-items:center; justify-content:space-between; background:white; padding:8px 10px; border-radius:6px; border-left:3px solid var(--primary); font-size:0.88rem;">
+                                    <span>${i+1}. ${a}</span>
+                                    ${alternatives.length > 2 ? `<button class="remove-btn" onclick="removeAlternativeFromStep3(${i})" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>` : '<span style="font-size:0.72rem; color:var(--text-soft);">mín.</span>'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                <p style="margin-top:10px; font-size:0.78rem; color:var(--text-soft); font-style:italic;">
+                    ⚠️ Ao remover um critério ou alternativa, os scores associados serão recalculados. Mínimo: 2 critérios e 2 alternativas.
+                </p>
+            </div>
+        </div>
+    `;
 
     let html = navHtml + `
         <div class="comparison-question">
@@ -541,4 +615,56 @@ function validateAllComparisons() {
         }
     }
     return true;
+}
+
+// --- Funções de gerenciamento de critérios/alternativas no Passo 3 ---
+
+function toggleManagementPanel() {
+    const panel = document.getElementById('managementPanelContent');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function removeCriterionFromStep3(index) {
+    if (criteria.length <= 2) {
+        showError('É necessário manter pelo menos 2 critérios.');
+        return;
+    }
+    
+    const removed = criteria[index];
+    
+    if (!confirm(`Remover o critério "${removed}"? Os scores associados serão perdidos.`)) {
+        return;
+    }
+    
+    // Remover do array e limpar dados
+    removeCriterion(index);
+    
+    // Ajustar currentCriterionIndex se necessário
+    if (currentCriterionIndex >= criteria.length) {
+        currentCriterionIndex = criteria.length - 1;
+    }
+    
+    showSuccess(`Critério "${removed}" removido com sucesso.`);
+    showComparisonForCriterion();
+}
+
+function removeAlternativeFromStep3(index) {
+    if (alternatives.length <= 2) {
+        showError('É necessário manter pelo menos 2 alternativas.');
+        return;
+    }
+    
+    const removed = alternatives[index];
+    
+    if (!confirm(`Remover a alternativa "${removed}"? Os scores associados serão recalculados.`)) {
+        return;
+    }
+    
+    // Remover do array e limpar dados
+    removeAlternative(index);
+    
+    showSuccess(`Alternativa "${removed}" removida com sucesso.`);
+    showComparisonForCriterion();
 }

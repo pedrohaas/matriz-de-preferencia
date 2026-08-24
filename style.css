@@ -641,6 +641,34 @@ textarea:focus {
     color: white;
 }
 
+.edit-btn {
+    background: rgba(37,150,190,0.1);
+    color: var(--secondary);
+    border: none;
+    padding: 5px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.edit-btn:hover {
+    background: var(--secondary);
+    color: white;
+}
+
+/* Progress bar clickable items */
+.step-progress-item[onclick] {
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.step-progress-item[onclick]:hover .step-dot {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px rgba(37,150,190,0.15);
+}
+
 /* ---- NAVIGATION ---- */
 .navigation {
     display: flex;
