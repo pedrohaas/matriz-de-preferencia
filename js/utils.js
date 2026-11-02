@@ -26,6 +26,11 @@ function dispatchUiAction(event, attribute) {
 document.addEventListener('click', event => dispatchUiAction(event, 'action'));
 document.addEventListener('change', event => dispatchUiAction(event, 'change'));
 document.addEventListener('input', event => dispatchUiAction(event, 'input'));
+document.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || !event.target.dataset?.enter) return;
+    event.preventDefault();
+    dispatchUiAction(event, 'enter');
+});
 
 /**
  * Mostra uma mensagem de erro como toast fixo no topo da tela.
@@ -50,6 +55,7 @@ function _showToast(message, type, duration) {
     const icons = { error: '⛔', success: '✅' };
     const toast = document.createElement('div');
     toast.className = `toast-notification toast-${type}`;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
 
     const icon = document.createElement('span');
     icon.className = 'toast-icon';

@@ -23,7 +23,7 @@ function renderRankSumForm() {
 
     const rows = state.criteria.map(criterion => `
         <div style="margin: 10px 0;">
-            <label>${escapeHtml(criterion.name)}:</label>
+            <label for="ranksum_${criterion.id}">${escapeHtml(criterion.name)}:</label>
             <select id="ranksum_${criterion.id}" data-change="updateRankSumWeights">
                 <option value="">Selecione a posição...</option>
                 ${options}
@@ -58,7 +58,7 @@ function renderSwingForm() {
             <div id="worstAlternativeSummary">${renderWorstAlternativeTable()}</div>
 
             <div style="margin: 15px 0;">
-                <label><strong>Passo 2: Qual é o critério mais importante?</strong></label>
+                <label for="mostImportant"><strong>Passo 2: Qual é o critério mais importante?</strong></label>
                 <p style="color: var(--text-soft); font-size: 13px; margin: 5px 0;">
                     Selecione o critério que causará maior impacto ao ser melhorado do pior cenário para a melhor performance.
                 </p>
@@ -81,6 +81,7 @@ function renderWorstAlternativeTable() {
                 <td style="border: 1px solid #fecaca; padding: 8px;">${escapeHtml(criterion.name)}</td>
                 <td style="border: 1px solid #fecaca; padding: 8px;">
                     <input type="number" id="worstValue_${criterion.id}" step="any" placeholder="Digite o pior valor"
+                           aria-label="Pior valor de ${escapeHtml(criterion.name)}"
                            data-change="validateWorstAlternative"
                            style="width: 100px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;">
                 </td>
@@ -98,14 +99,14 @@ function renderWorstAlternativeTable() {
                 Defina os valores que representam o <strong>pior cenário possível</strong> para cada critério.
                 Esta alternativa servirá como base de comparação para estabelecer os pesos.
             </p>
-            <table style="width: 100%; border-collapse: collapse;">
+            <div class="table-scroll"><table style="width: 100%; border-collapse: collapse;">
                 <tr style="background: #fee2e2;">
                     <th style="border: 1px solid #fecaca; padding: 8px; text-align: left;">Critério</th>
                     <th style="border: 1px solid #fecaca; padding: 8px; text-align: left;">Valor do Pior Cenário</th>
                     <th style="border: 1px solid #fecaca; padding: 8px; text-align: left;">Sugestão</th>
                 </tr>
                 ${rows}
-            </table>
+            </table></div>
             <div id="worstAlternativeStatus" style="margin-top: 10px;"></div>
         </div>
     `;
@@ -236,7 +237,7 @@ function updateSwingWeightingInterface() {
             const worstValue = escapeHtml(document.getElementById(`worstValue_${criterion.id}`).value);
             return `
                 <div style="margin: 10px 0; padding: 10px; border: 1px solid #e5e7eb; border-radius: 5px;">
-                    <label><strong>${name}</strong></label>
+                    <label for="swingweight_${criterion.id}"><strong>${name}</strong></label>
                     <p style="font-size: 12px; color: #6b7280; margin: 5px 0;">
                         Qual o impacto de melhorar "${name}" do valor ${worstValue} para a melhor performance,
                         comparado ao mesmo tipo de melhoria em "${mostImportantName}"?

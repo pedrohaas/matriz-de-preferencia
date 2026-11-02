@@ -44,7 +44,7 @@ function resetApp() {
     updateCriteriaList();
     updateAlternativesList();
     showStep(1);
-    document.getElementById('apiConfigSection').classList.remove('collapsed');
+    setApiConfigCollapsed(false);
     setSaveStatus('💾 Defina um título para salvar sua análise automaticamente');
 }
 

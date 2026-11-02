@@ -11,7 +11,7 @@ import tempfile
 import threading
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-TIMEOUT_SECONDS = 120
+TIMEOUT_SECONDS = 240
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):

@@ -21,8 +21,10 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // ---- Condução da aplicação real, carregada em um iframe ----
 let frame = null;
+let pageWidth = 1200;
 
-async function load() {
+async function load(width = 1200) {
+    pageWidth = width;
     // Nesta ordem: remover o iframe dispara o salvamento da análise que estava aberta
     if (frame) frame.remove();
     frame = null;
@@ -34,6 +36,7 @@ async function load() {
 async function openPage() {
     if (frame) frame.remove();
     frame = document.createElement('iframe');
+    frame.style.width = `${pageWidth}px`;
     frame.src = '../index.html?' + Math.random();
     document.body.appendChild(frame);
     await new Promise(resolve => { frame.onload = resolve; });
@@ -1013,6 +1016,405 @@ test('Ad-hoc e ROC foram removidos', async () => {
     const w = await load();
     equal(typeof w.updateROCWeights, 'undefined', 'updateROCWeights');
     equal([...el(w, 'weightingMethod').options].map(o => o.value), ['', 'swingweighting', 'ranksum'], 'opções');
+});
+
+// ---- Alternativas dominadas ----
+const scoresTable = table => Object.fromEntries(
+    Object.entries(table).map(([criterion, scores]) => [criterion, { scores }])
+);
+
+test('Núcleo: dominância exige ser melhor em algum critério', async () => {
+    const w = await load();
+    const data = scoresTable({
+        c1: { a: 10, b: 5, c: 10, d: 10, e: 0 },
+        c2: { a: 8, b: 8, c: 8, d: 2, e: 10 },
+    });
+    const result = JSON.parse(w.JSON.stringify(w.findDominatedAlternatives(['c1', 'c2'], ['a', 'b', 'c', 'd', 'e'], data)));
+    // a e c são idênticas: não se dominam. e é a melhor em c2: não é dominada.
+    equal(result, [
+        { id: 'b', dominatedBy: ['a', 'c'] },
+        { id: 'd', dominatedBy: ['a', 'c'] },
+    ], 'dominadas');
+});
+
+test('Resultado aponta alternativas dominadas com nomes escapados', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['<b>A</b>', 'B']);
+    score(w, '<b>A</b>', 10, 'B', 2);
+    goToCriterion(w, 1);
+    score(w, '<b>A</b>', 8, 'B', 2);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    const notice = el(w, 'dominanceNotice');
+    equal(notice.querySelector('li').textContent, 'B é dominada por <b>A</b>', 'aviso');
+    equal(notice.querySelectorAll('b').length, 0, 'escape');
+});
+
+test('Sem dominância, o aviso não aparece', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B']);
+    score(w, 'A', 10, 'B', 2);
+    goToCriterion(w, 1);
+    score(w, 'B', 8, 'A', 2);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    equal(el(w, 'dominanceNotice'), null, 'aviso');
+});
+
+// ---- Sensibilidade ----
+test('Núcleo: sensibilidade em caso calculado à mão', async () => {
+    const w = await load();
+    const data = scoresTable({ c1: { a: 10, b: 0 }, c2: { a: 0, b: 10 } });
+    const result = JSON.parse(w.JSON.stringify(w.analyzeSensitivity(['c1', 'c2'], ['a', 'b'], data, { c1: 0.6, c2: 0.4 })));
+    equal(result.status, 'ok', 'status');
+    equal(result.winner, 'a', 'vencedora');
+    equal(result.criteria[0].low.challenger, 'b', 'quem passa em c1');
+    close(result.criteria[0].low.weight, 0.5, 'limite inferior de c1');
+    equal(result.criteria[0].high, null, 'c1 maior não muda');
+    close(result.criteria[1].high.weight, 0.5, 'limite superior de c2');
+    equal(result.criteria[1].low, null, 'c2 menor não muda');
+    close(result.closest.change, 0.1, 'menor mudança');
+});
+
+test('Núcleo: sensibilidade trata empate, pesos zerados e soma diferente de 100%', async () => {
+    const w = await load();
+    const data = scoresTable({ c1: { a: 10, b: 0 }, c2: { a: 0, b: 10 } });
+    const analyze = weights => JSON.parse(w.JSON.stringify(w.analyzeSensitivity(['c1', 'c2'], ['a', 'b'], data, weights)));
+    equal(analyze({ c1: 0.5, c2: 0.5 }).status, 'tie', 'empate');
+    equal(analyze({ c1: 0, c2: 0 }).status, 'noWeights', 'zerados');
+    close(analyze({ c1: 1.2, c2: 0.8 }).criteria[0].low.weight, 0.5, 'normaliza');
+
+    const never = scoresTable({ c1: { a: 10, b: 2 }, c2: { a: 8, b: 2 } });
+    const dominant = JSON.parse(w.JSON.stringify(w.analyzeSensitivity(['c1', 'c2'], ['a', 'b'], never, { c1: 0.5, c2: 0.5 })));
+    equal(dominant.closest, null, 'vencedora dominante nunca muda');
+});
+
+test('Núcleo: limites de sensibilidade conferem com busca exaustiva', async () => {
+    const w = await load();
+    // Gerador determinístico, para uma falha ser reproduzível
+    let seed = 12345;
+    const random = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    const EPSILON = 1e-6;
+    let limitsChecked = 0, stableChecked = 0;
+
+    for (let round = 0; round < 300; round++) {
+        const criterionCount = 2 + Math.floor(random() * 4);
+        const alternativeCount = 2 + Math.floor(random() * 5);
+        const cIds = Array.from({ length: criterionCount }, (_, i) => `c${i}`);
+        const aIds = Array.from({ length: alternativeCount }, (_, i) => `a${i}`);
+
+        const table = {};
+        cIds.forEach(c => {
+            table[c] = {};
+            aIds.forEach(a => { table[c][a] = Math.round(random() * 100) / 10; });
+        });
+        const data = scoresTable(table);
+
+        // Parte das rodadas tem pesos zerados, inclusive um critério com 100%
+        const raw = {};
+        cIds.forEach(c => { raw[c] = random() < 0.2 ? 0 : random(); });
+        if (round % 10 === 0) { cIds.forEach(c => { raw[c] = 0; }); raw.c0 = 1; }
+        const weights = w.normalizeWeights(raw);
+
+        const analysis = w.analyzeSensitivity(cIds, aIds, data, weights);
+        if (analysis.status !== 'ok') continue;
+
+        const finalsAt = (criterion, weight) => w.computeFinalScores(cIds, aIds, data, w.redistributeWeights(weights, criterion, weight));
+        const context = `rodada ${round}`;
+
+        analysis.criteria.forEach(({ id, weight, low, high }) => {
+            [[low, -1], [high, 1]].forEach(([limit, direction]) => {
+                if (limit) {
+                    const inside = finalsAt(id, limit.weight - direction * EPSILON);
+                    const outside = finalsAt(id, limit.weight + direction * EPSILON);
+                    if (aIds.some(a => inside[a] > inside[analysis.winner] + 1e-9)) {
+                        throw new Error(`${context}: vencedora superada antes do limite de ${id}`);
+                    }
+                    if (!(outside[limit.challenger] > outside[analysis.winner])) {
+                        throw new Error(`${context}: rival não supera depois do limite de ${id}`);
+                    }
+                    limitsChecked++;
+                } else {
+                    // Sem limite neste sentido: a vencedora resiste até o extremo
+                    const end = direction < 0 ? 0 : 1;
+                    for (let step = 0; step <= 200; step++) {
+                        const t = weight + (end - weight) * step / 200;
+                        const finals = finalsAt(id, t);
+                        if (aIds.some(a => finals[a] > finals[analysis.winner] + 1e-9)) {
+                            throw new Error(`${context}: ${id} a ${t} troca a vencedora, sem limite informado`);
+                        }
+                        stableChecked++;
+                    }
+                }
+            });
+        });
+    }
+    if (limitsChecked < 100 || stableChecked < 100) throw new Error(`amostra pequena: ${limitsChecked}/${stableChecked}`);
+});
+
+test('Painel de sensibilidade acompanha os sliders', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B']);
+    score(w, 'A', 10, 'B', 0);
+    goToCriterion(w, 1);
+    score(w, 'B', 10, 'A', 0);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    const text = () => el(w, 'sensitivityPanel').textContent.replace(/\s+/g, ' ');
+    equal(text().includes('A menor mudança que troca a vencedora A é levar C1 de 66.7% para 50.0%'), true, `resumo: ${text()}`);
+    equal(text().includes('B passa à frente'), true, 'rival');
+
+    const id = criterionId(w, 'C1');
+    setField(w, `weight-${id}`, '50');
+    equal(text().includes('empate no 1º lugar'), true, 'empate');
+    setField(w, `weight-${id}`, '20');
+    equal(text().includes('vencedora B é levar C1 de 20.0% para 50.0%'), true, `após mudar: ${text()}`);
+});
+
+test('Painel avisa quando os pesos não somam 100%', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B']);
+    score(w, 'A', 10, 'B', 0);
+    goToCriterion(w, 1);
+    score(w, 'B', 10, 'A', 0);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    const checkbox = el(w, 'autoNormalizeCheckbox');
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new w.Event('change', { bubbles: true }));
+    setField(w, `weight-${criterionId(w, 'C1')}`, '90');
+    equal(el(w, 'sensitivityPanel').textContent.includes('não somam 100%'), true, 'aviso');
+});
+
+// ---- Layout ----
+function assertFits(w, label) {
+    const page = w.document.documentElement;
+    if (page.scrollWidth > page.clientWidth) {
+        const wide = [...w.document.querySelectorAll('body *')]
+            .filter(e => e.getBoundingClientRect().right > page.clientWidth + 1 && !e.closest('.table-scroll, .step-progress, [style*="overflow-x"]'))
+            .slice(0, 3).map(e => e.tagName + '.' + e.className);
+        throw new Error(`${label}: rolagem horizontal (${page.scrollWidth} > ${page.clientWidth}): ${wide}`);
+    }
+}
+
+for (const width of [320, 390, 768]) {
+    test(`Nenhuma tela transborda em ${width}px, mesmo com nomes longos`, async () => {
+        const w = await load(width);
+        const long = 'NomeMuitoLongoSemEspacos'.repeat(5);
+        assertFits(w, 'apresentação');
+        setField(w, 'problemTitle', long);
+        setField(w, 'problemDescription', 'Descrição ' + long);
+        await w.nextStep();
+        for (const c of [`C1${long}`, `C2${long}`]) { el(w, 'criterionInput').value = c; w.addCriterion(); }
+        assertFits(w, 'critérios');
+        await w.nextStep();
+        for (const a of [`A${long}`, `B${long}`, `C${long}`]) { el(w, 'alternativeInput').value = a; w.addAlternative(); }
+        assertFits(w, 'alternativas');
+        await w.nextStep();
+        action(w, 'toggleManagementPanel').click();
+        assertFits(w, 'scores com painel');
+        for (const i of [0, 1]) {
+            goToCriterion(w, i);
+            card(w, `A${long}`).click();
+            el(w, 'bestScore').value = 10;
+            button(w, 'Confirmar').click();
+            assertFits(w, 'nota');
+            card(w, `B${long}`).click();
+            el(w, 'worstScore').value = 2;
+            button(w, 'Confirmar').click();
+            assertFits(w, 'posicionamento');
+            card(w, 'Mesmo nível de').click();
+        }
+        assertFits(w, 'scores');
+        await w.nextStep();
+        selectMethod(w, 'swingweighting');
+        const [first, second] = read(w, 'criterionIds()');
+        setField(w, 'mostImportant', first, 'change');
+        setField(w, `swingweight_${second}`, 50, 'change');
+        assertFits(w, 'swing');
+        await w.nextStep();
+        equal(read(w, 'state.currentStep'), 6, 'resultado');
+        assertFits(w, 'resultado');
+    });
+}
+
+test('No celular, o título aparece inteiro e a barra de passos não corta o início', async () => {
+    const w = await load(390);
+    const rect = e => e.getBoundingClientRect();
+    const title = w.document.querySelector('.header h1');
+    const header = w.document.querySelector('.header');
+    equal(rect(title).right <= rect(header).right, true, 'título dentro do cabeçalho');
+    equal(rect(w.document.querySelector('.header-logo')).width, 96, 'logo');
+
+    const bar = el(w, 'stepProgressBar');
+    equal(bar.scrollWidth <= bar.clientWidth, true, 'barra cabe sem rolar');
+    equal(rect(el(w, 'prog-dot-0')).left >= rect(bar).left, true, 'primeiro passo visível');
+    equal(rect(el(w, 'prog-dot-5')).right <= rect(bar).right, true, 'último passo visível');
+
+    const body = el(w, 'apiConfigBody');
+    equal(body.scrollHeight <= body.clientHeight, true, 'configuração da IA sem corte');
+});
+
+test('Banner de contexto fica fixo ao rolar a página', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    w.scrollTo(0, 800);
+    await sleep(50);
+    equal(w.scrollY > 0, true, 'página rolou');
+    equal(Math.abs(el(w, 'contextBanner').getBoundingClientRect().top) < 1, true, 'banner no topo');
+});
+
+test('Trocar de passo leva a leitura ao início do passo', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    w.scrollTo(0, 100000);
+    await sleep(50);
+    w.prevStep();
+    await sleep(50);
+    const top = el(w, 'step5').getBoundingClientRect().top;
+    equal(top >= 0 && top <= 200, true, `topo do passo em ${top}`);
+});
+
+// ---- Acessibilidade ----
+const key = (w, name, options = {}) => (w.document.activeElement ?? w.document.body).dispatchEvent(
+    new w.KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...options })
+);
+
+test('Assistente de scores funciona só com teclado', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    equal(card(w, 'A').tagName, 'BUTTON', 'cartão é botão');
+
+    card(w, 'A').click();
+    equal(w.document.activeElement.id, 'bestScore', 'foco na nota da melhor');
+    w.document.activeElement.value = '10';
+    key(w, 'Enter');
+    equal(w.document.activeElement.classList.contains('alternative-card'), true, 'foco na escolha da pior');
+    card(w, 'B').click();
+    equal(w.document.activeElement.id, 'worstScore', 'foco na nota da pior');
+    w.document.activeElement.value = '2';
+    key(w, 'Enter');
+    equal(read(w, `state.comparisonData['${criterionId(w, 'C1')}'].worstScore`), 2, 'Enter confirma');
+
+    card(w, 'Entre "A" e "B"').click();
+    equal(w.document.activeElement.id, 'positionScore', 'foco na nota intermediária');
+    w.document.activeElement.value = '5';
+    key(w, 'Enter');
+    equal(read(w, `state.comparisonData['${criterionId(w, 'C1')}'].scores['${alternativeId(w, 'C')}']`), 5, 'Enter define');
+    equal(w.document.activeElement.tagName, 'BUTTON', 'foco não se perde ao concluir');
+});
+
+test('Enter com valor inválido mostra o erro e não avança', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B']);
+    card(w, 'A').click();
+    w.document.activeElement.value = '11';
+    key(w, 'Enter');
+    equal(read(w, `state.comparisonData['${criterionId(w, 'C1')}'].bestScore`) ?? null, null, 'nota');
+    equal(w.document.querySelector('.toast-error').getAttribute('role'), 'alert', 'anúncio do erro');
+});
+
+test('Barra de passos é navegável e indica o passo atual', async () => {
+    const w = await load();
+    const current = () => [...w.document.querySelectorAll('[aria-current="step"]')].map(e => e.id);
+    equal(el(w, 'prog-item-0').tagName, 'BUTTON', 'botão');
+    equal(current(), ['prog-item-0'], 'inicial');
+    setField(w, 'problemTitle', 'Teste');
+    await w.nextStep();
+    equal(current(), ['prog-item-1'], 'após avançar');
+    equal(w.document.activeElement.textContent, 'Escolha dos Critérios', 'foco no título do passo');
+    equal(w.document.activeElement.tagName, 'H2', 'título é cabeçalho');
+});
+
+test('Configuração da IA recolhida sai da navegação por teclado', async () => {
+    const w = await load();
+    const toggle = el(w, 'apiToggleBtn');
+    equal(toggle.getAttribute('aria-expanded'), 'true', 'aberta');
+    toggle.click();
+    equal(toggle.getAttribute('aria-expanded'), 'false', 'recolhida');
+    await sleep(450);
+    equal(w.getComputedStyle(el(w, 'apiKey')).visibility, 'hidden', 'campo oculto');
+    toggle.click();
+    equal(toggle.getAttribute('aria-expanded'), 'true', 'reaberta');
+    setField(w, 'problemTitle', 'Teste');
+    await w.nextStep();
+    equal(toggle.getAttribute('aria-expanded'), 'false', 'recolhe ao avançar');
+});
+
+test('Modal da IA prende o foco, fecha com Esc e fica oculto quando fechado', async () => {
+    const w = await load();
+    const modal = el(w, 'aiSuggestionModal');
+    equal(w.getComputedStyle(modal).visibility, 'hidden', 'oculto');
+    localStorage.setItem('gemini_api_key', 'x'.repeat(30));
+    w.fetch = async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'Custo, Prazo' }] } }] }), { status: 200 });
+    setField(w, 'problemTitle', 'Teste');
+    const advance = w.nextStep();
+    await sleep(100);
+
+    const dialog = modal.querySelector('[role="dialog"]');
+    equal(dialog.getAttribute('aria-modal'), 'true', 'diálogo');
+    const chip = w.document.activeElement;
+    equal(chip.textContent, 'Custo', 'foco inicial');
+    chip.click();
+    equal(chip.getAttribute('aria-pressed'), 'false', 'estado do item');
+    chip.click();
+
+    key(w, 'Tab', { shiftKey: true });
+    equal(w.document.activeElement.textContent.includes('Adicionar Selecionados'), true, 'Shift+Tab volta ao último');
+    key(w, 'Tab');
+    equal(w.document.activeElement, chip, 'Tab volta ao primeiro');
+
+    key(w, 'Escape');
+    await advance;
+    equal(read(w, 'state.criteria'), [], 'Esc ignora as sugestões');
+    equal(read(w, 'state.currentStep'), 2, 'segue adiante');
+});
+
+test('Todo campo visível tem nome acessível', async () => {
+    const w = await load();
+    const unnamed = label => {
+        const missing = [...w.document.querySelectorAll('input, select, textarea, button')].filter(e => {
+            if (e.hidden || e.offsetParent === null) return false;
+            const named = e.getAttribute('aria-label') || e.labels?.length || e.textContent.trim();
+            return !named;
+        }).map(e => e.id || e.outerHTML.slice(0, 60));
+        equal(missing, [], `sem nome em ${label}`);
+    };
+    unnamed('apresentação');
+    await setup(w, ['C1', 'C2', 'C3'], ['A', 'B', 'C']);
+    unnamed('scores');
+    card(w, 'A').click();
+    unnamed('nota');
+    w.document.activeElement.value = '10';
+    key(w, 'Enter');
+    card(w, 'B').click();
+    w.document.activeElement.value = '2';
+    key(w, 'Enter');
+    card(w, 'Entre "A" e "B"').click();
+    unnamed('posicionamento');
+    w.document.activeElement.value = '5';
+    key(w, 'Enter');
+    [1, 2].forEach(i => { goToCriterion(w, i); score(w, 'A', 10, 'B', 2, ['A']); });
+    action(w, 'toggleManagementPanel').click();
+    unnamed('painel');
+    await w.nextStep();
+    selectMethod(w, 'ranksum');
+    unnamed('rank-sum');
+    swing(w);
+    unnamed('swing');
+    await w.nextStep();
+    unnamed('resultado');
+    w.goToStep(2);
+    w.document.querySelector('[data-action="editItem"]').click();
+    unnamed('edição');
 });
 
 // ---- Execução ----
