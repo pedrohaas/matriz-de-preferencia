@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Testes de regressão</title>
+<style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    li.pass { color: #1a7a4a; }
+    li.fail { color: #9b2020; font-weight: 600; }
+    iframe { position: absolute; left: -9999px; width: 1200px; height: 900px; }
+</style>
+</head>
+<body>
+<h1>Testes de regressão</h1>
+<p id="summary">Executando…</p>
+<ul id="list"></ul>
+<script>
+const CRITERIA = ['C1', 'C2', 'C3'];
+const results = [];
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// ---- Condução da aplicação real, carregada em um iframe ----
+let frame = null;
+
+async function load() {
+    localStorage.clear();
+    if (frame) frame.remove();
+    frame = document.createElement('iframe');
+    frame.src = '../index.html?' + Math.random();
+    document.body.appendChild(frame);
+    await new Promise(resolve => { frame.onload = resolve; });
+    const w = frame.contentWindow;
+    w.alert = () => {};
+    w.confirm = () => true;
+    return w;
+}
+
+const el = (w, id) => w.document.getElementById(id);
+const state = (w, expr) => w.eval(expr);
+const card = (w, text) => [...w.document.querySelectorAll('#comparisonInterface .alternative-card')]
+    .find(c => c.textContent.includes(text));
+const button = (w, text) => [...w.document.querySelectorAll('#comparisonInterface button')]
+    .find(b => b.textContent.includes(text));
+
+async function setup(w, criteria, alternatives) {
+    el(w, 'problemTitle').value = 'Teste';
+    await w.nextStep();
+    for (const c of criteria) { el(w, 'criterionInput').value = c; w.addCriterion(); }
+    await w.nextStep();
+    for (const a of alternatives) { el(w, 'alternativeInput').value = a; w.addAlternative(); }
+    await w.nextStep();
+}
+
+function score(w, best, bestScore, worst, worstScore, sameLevel = []) {
+    card(w, best).click();
+    el(w, 'bestScore').value = bestScore;
+    button(w, 'Confirmar').click();
+    card(w, worst).click();
+    el(w, 'worstScore').value = worstScore;
+    button(w, 'Confirmar').click();
+    for (const reference of sameLevel) card(w, `Mesmo nível de "${reference}"`).click();
+}
+
+// A = C = 10 e B = 2 em todos os critérios
+async function goToWeights(w, criteria = CRITERIA) {
+    await setup(w, criteria, ['A', 'B', 'C']);
+    criteria.forEach((_, i) => { w.goToCriterion(i); score(w, 'A', 10, 'B', 2, ['A']); });
+    await w.nextStep();
+}
+
+function selectMethod(w, method) {
+    el(w, 'weightingMethod').value = method;
+    el(w, 'weightingMethod').dispatchEvent(new w.Event('change'));
+}
+
+function rankSum(w, ranks) {
+    selectMethod(w, 'ranksum');
+    ranks.forEach((rank, i) => {
+        const select = el(w, `ranksum_${i}`);
+        select.value = rank;
+        select.dispatchEvent(new w.Event('change'));
+    });
+}
+
+function swing(w) {
+    selectMethod(w, 'swingweighting');
+    CRITERIA.forEach((_, i) => {
+        const input = el(w, `worstValue_${i}`);
+        input.value = 1;
+        input.dispatchEvent(new w.Event('change'));
+    });
+    const most = el(w, 'mostImportant');
+    most.value = '0';
+    most.dispatchEvent(new w.Event('change'));
+    [[1, 50], [2, 25]].forEach(([i, value]) => {
+        const input = el(w, `swingweight_${i}`);
+        input.value = value;
+        input.dispatchEvent(new w.Event('change'));
+    });
+}
+
+// ---- Asserções ----
+function equal(actual, expected, label) {
+    const a = JSON.stringify(actual), e = JSON.stringify(expected);
+    if (a !== e) throw new Error(`${label}: esperado ${e}, obtido ${a}`);
+}
+
+function close(actual, expected, label) {
+    if (Math.abs(actual - expected) > 1e-6) throw new Error(`${label}: esperado ${expected}, obtido ${actual}`);
+}
+
+function closeWeights(actual, expected) {
+    equal(Object.keys(actual).sort(), Object.keys(expected).sort(), 'critérios dos pesos');
+    Object.keys(expected).forEach(c => close(actual[c], expected[c], `peso de ${c}`));
+}
+
+const RANK_123 = { C1: 3 / 6, C2: 2 / 6, C3: 1 / 6 };
+const SWING_100_50_25 = { C1: 100 / 175, C2: 50 / 175, C3: 25 / 175 };
+
+function test(name, fn) { tests.push({ name, fn }); }
+const tests = [];
+
+// ---- Cenários ----
+test('Fluxo completo com Rank-Sum calcula a soma ponderada', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 6, 'passo');
+    closeWeights(state(w, 'weights'), RANK_123);
+    const finals = state(w, 'lastResultsData.scoresFinais');
+    close(finals.A, 10, 'A'); close(finals.B, 2, 'B'); close(finals.C, 10, 'C');
+});
+
+test('Fluxo completo com Swing normaliza os pesos', async () => {
+    const w = await load();
+    await goToWeights(w);
+    swing(w);
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 6, 'passo');
+    closeWeights(state(w, 'weights'), SWING_100_50_25);
+});
+
+test('Nota 0 no mesmo nível da pior alternativa conclui o critério', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    score(w, 'A', 10, 'B', 0, ['B']);
+    equal(state(w, "getScoreForAlternative('C1', 'C')"), 0, 'score de C');
+    equal(!!card(w, 'Mesmo nível de'), false, 'pergunta repetida');
+    w.goToCriterion(1);
+    score(w, 'A', 10, 'B', 0, ['B']);
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 5, 'passo');
+});
+
+test('Trocar de método sem preencher o novo não usa os pesos do anterior', async () => {
+    const w = await load();
+    await goToWeights(w);
+    swing(w);
+    selectMethod(w, 'ranksum');
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 5, 'passo');
+});
+
+test('Posições duplicadas no Rank-Sum impedem o avanço', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    rankSum(w, [3, 3, 3]);
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 5, 'passo');
+});
+
+test('Remover critério recalcula os pesos para somar 100%', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    w.goToStep(2);
+    w.removeCriterion(0);
+    await w.nextStep();
+    await w.nextStep();
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 5, 'passo');
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 5, 'não avança com posição inválida');
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 6, 'passo final');
+    closeWeights(state(w, 'weights'), { C2: 2 / 3, C3: 1 / 3 });
+});
+
+test('Ajustes dos sliders não substituem os pesos do método', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    w.equalizeWeights();
+    equal(el(w, 'resultsMethod').textContent, 'Rank-Sum (pesos ajustados manualmente)', 'método com ajuste');
+    w.prevStep();
+    await w.nextStep();
+    closeWeights(state(w, 'weights'), RANK_123);
+    equal(el(w, 'resultsMethod').textContent, 'Rank-Sum', 'método após recalcular');
+    w.equalizeWeights();
+    w.resetWeights();
+    closeWeights(state(w, 'weights'), RANK_123);
+    equal(el(w, 'resultsMethod').textContent, 'Rank-Sum', 'método após restaurar');
+});
+
+test('Peso digitado é mantido e os demais dividem o restante', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    w.equalizeWeights();
+    w.updateWeightFromInput('C1', '50');
+    equal(el(w, 'weight-input-C1').value, '50.0', 'valor exibido');
+    closeWeights(state(w, 'weights'), { C1: 0.5, C2: 0.25, C3: 0.25 });
+    w.updateWeightDynamic('C1', '100');
+    closeWeights(state(w, 'weights'), { C1: 1, C2: 0, C3: 0 });
+    w.updateWeightDynamic('C1', '40');
+    closeWeights(state(w, 'weights'), { C1: 0.4, C2: 0.3, C3: 0.3 });
+});
+
+test('Empates dividem a posição e aparecem na recomendação', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    const rows = () => [...w.document.querySelectorAll('#dynamicRanking li')].map(li => ({
+        position: li.querySelector('.ranking-position').textContent,
+        tied: !!li.querySelector('.tie-badge'),
+    }));
+    const expected = [
+        { position: '1', tied: true }, { position: '1', tied: true }, { position: '3', tied: false },
+    ];
+    equal(rows(), expected, 'ranking inicial');
+    equal(el(w, 'topAlternative').textContent, 'A e C (empate)', 'recomendação inicial');
+    w.equalizeWeights();
+    equal(rows(), expected, 'ranking após mexer nos pesos');
+    equal(el(w, 'topAlternative').textContent, 'A e C (empate)', 'recomendação após mexer nos pesos');
+});
+
+test('Sem empate, a recomendação traz só a vencedora', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B']);
+    score(w, 'A', 10, 'B', 2);
+    w.goToCriterion(1);
+    score(w, 'A', 8, 'B', 2);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    equal(el(w, 'topAlternative').textContent, 'A', 'recomendação');
+    equal(w.document.querySelectorAll('.tie-badge').length, 0, 'marcadores de empate');
+});
+
+test('Nova Análise pede confirmação e restaura progresso e banner', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+
+    w.confirm = () => false;
+    w.restart();
+    equal(state(w, 'currentStep'), 6, 'cancelar mantém a análise');
+
+    w.confirm = () => true;
+    w.restart();
+    equal(state(w, 'currentStep'), 1, 'passo');
+    equal(el(w, 'prog-dot-0').classList.contains('active'), true, 'primeiro ponto ativo');
+    equal(el(w, 'prog-dot-5').classList.contains('active'), false, 'último ponto inativo');
+    equal(el(w, 'contextBanner').classList.contains('visible'), false, 'banner');
+    equal(state(w, 'weightingInputs.ranks'), {}, 'entradas de pesagem');
+});
+
+test('Critério pode ser reiniciado em qualquer subetapa', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    equal(!!button(w, 'Reiniciar'), false, 'nada a reiniciar antes da primeira escolha');
+    card(w, 'A').click();
+    button(w, 'Reiniciar').click();
+    equal(state(w, "comparisonData['C1']"), {}, 'após escolher a melhor');
+    score(w, 'A', 10, 'B', 2);
+    button(w, 'Reiniciar').click();
+    equal(state(w, "comparisonData['C1']"), {}, 'durante o posicionamento');
+});
+
+test('Voltar ao passo de pesos preserva o Rank-Sum', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [2, 1, 3]);
+    await w.nextStep();
+    w.prevStep();
+    equal([0, 1, 2].map(i => el(w, `ranksum_${i}`).value), ['2', '1', '3'], 'posições');
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 6, 'passo');
+});
+
+test('Voltar ao passo de pesos preserva o Swing', async () => {
+    const w = await load();
+    await goToWeights(w);
+    swing(w);
+    await w.nextStep();
+    w.prevStep();
+    equal(el(w, 'worstValue_0').value, '1', 'pior valor');
+    equal(el(w, 'mostImportant').value, '0', 'mais importante');
+    equal(el(w, 'swingweight_1').value, '50', 'impacto');
+    await w.nextStep();
+    closeWeights(state(w, 'weights'), SWING_100_50_25);
+});
+
+test('Trocar o critério mais importante do Swing descarta os impactos', async () => {
+    const w = await load();
+    await goToWeights(w);
+    swing(w);
+    const most = el(w, 'mostImportant');
+    most.value = '1';
+    most.dispatchEvent(new w.Event('change'));
+    equal(el(w, 'swingweight_0').value, '', 'impacto em branco');
+    await w.nextStep();
+    equal(state(w, 'currentStep'), 5, 'passo');
+});
+
+test('Renomear critério preserva a posição no Rank-Sum', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [2, 1, 3]);
+    w.goToStep(2);
+    w.editCriterion(0);
+    const input = w.document.querySelector('#criterion-item-0 .edit-inline-input');
+    input.value = 'Novo';
+    w.document.querySelector('#criterion-item-0 .btn-primary').click();
+    w.goToStep(2);
+    await w.nextStep();
+    await w.nextStep();
+    await w.nextStep();
+    equal(el(w, 'ranksum_0').value, '2', 'posição mantida');
+    await w.nextStep();
+    closeWeights(state(w, 'weights'), { Novo: 2 / 6, C2: 3 / 6, C3: 1 / 6 });
+});
+
+test('Limpeza das sugestões da IA preserva os nomes', async () => {
+    const w = await load();
+    equal(
+        w.parseCriteriaSuggestions('1. Custo, 2) Prazo\n- Qualidade, **Risco**, 5G, * Local, `Marca`, 3D,  , '),
+        ['Custo', 'Prazo', 'Qualidade', 'Risco', '5G', 'Local', 'Marca', '3D'],
+        'critérios'
+    );
+});
+
+test('IA é chamada uma vez ao voltar e avançar', async () => {
+    const w = await load();
+    localStorage.setItem('gemini_api_key', 'x'.repeat(30));
+    let calls = 0;
+    w.fetch = async () => {
+        calls++;
+        const body = { candidates: [{ content: { parts: [{ text: 'Custo, Prazo' }] } }] };
+        return new Response(JSON.stringify(body), { status: 200 });
+    };
+    const passThroughModal = async () => {
+        const advance = w.nextStep();
+        await sleep(100);
+        if (el(w, 'aiSuggestionModal').classList.contains('active')) w.closeAiModal(false);
+        await advance;
+    };
+
+    el(w, 'problemTitle').value = 'Teste';
+    await passThroughModal();
+    equal(calls, 1, 'primeira passagem');
+    w.prevStep();
+    await passThroughModal();
+    equal(calls, 1, 'sem mudar o problema');
+
+    w.prevStep();
+    el(w, 'problemDescription').value = 'Outro contexto';
+    await passThroughModal();
+    equal(calls, 2, 'com o problema alterado');
+
+    el(w, 'criterionInput').value = 'Manual';
+    w.addCriterion();
+    w.prevStep();
+    el(w, 'problemDescription').value = 'Terceiro contexto';
+    await passThroughModal();
+    equal(calls, 2, 'já há critérios');
+});
+
+test('Ad-hoc e ROC foram removidos', async () => {
+    const w = await load();
+    equal(typeof w.updateROCWeights, 'undefined', 'updateROCWeights');
+    equal([...el(w, 'weightingMethod').options].map(o => o.value), ['', 'swingweighting', 'ranksum'], 'opções');
+});
+
+// ---- Execução ----
+(async () => {
+    const list = document.getElementById('list');
+    for (const { name, fn } of tests) {
+        let error = null;
+        try { await fn(); } catch (e) { error = String(e.message || e); }
+        results.push({ name, error });
+        const item = document.createElement('li');
+        item.className = error ? 'fail' : 'pass';
+        item.textContent = error ? `${name} — ${error}` : name;
+        list.appendChild(item);
+    }
+    if (frame) frame.remove();
+    const failed = results.filter(r => r.error).length;
+    document.getElementById('summary').textContent =
+        `${results.length - failed} de ${results.length} testes passaram`;
+    // Consumido por tests/run.py; ignorado ao abrir a página manualmente
+    fetch('/__results', { method: 'POST', body: JSON.stringify(results) }).catch(() => {});
+})();
+</script>
+</body>
+</html>

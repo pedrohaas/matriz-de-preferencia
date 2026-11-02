@@ -48,9 +48,8 @@ Através de uma interface passo a passo, o usuário divide o problema em partes 
 
 A ferramenta suporta múltiplos métodos para definição do grau de importância dos critérios:
 
-1. **Ad-hoc**: Atribuição direta de pesos. O usuário define os valores percentuais de cada critério livremente, desde que a soma total atinja exatamente 100%.
-2. **Rank-Sum**: O usuário apenas ordena os critérios por grau de importância (do 1º ao último). Os pesos exatos são calculados matematicamente com base nessa ordenação posicional.
-3. **Swing Weighting (Recomendado)**: Um método mais rigoroso onde o usuário analisa uma alternativa hipotética que apresenta o pior cenário possível em todos os critérios. O usuário escolhe qual critério, ao ser melhorado para o nível máximo, traria o maior benefício. Esse critério recebe peso 100, e as melhorias dos demais critérios são comparadas proporcionalmente a este impacto máximo. Ao final, os valores são normalizados.
+1. **Rank-Sum**: O usuário apenas ordena os critérios por grau de importância (do 1º ao último). Os pesos exatos são calculados matematicamente com base nessa ordenação posicional.
+2. **Swing Weighting (Recomendado)**: Um método mais rigoroso onde o usuário analisa uma alternativa hipotética que apresenta o pior cenário possível em todos os critérios. O usuário escolhe qual critério, ao ser melhorado para o nível máximo, traria o maior benefício. Esse critério recebe peso 100, e as melhorias dos demais critérios são comparadas proporcionalmente a este impacto máximo. Ao final, os valores são normalizados.
 
 ---
 
@@ -89,11 +88,15 @@ preference-matrix/
 │   ├── utils.js            # Sistema de notificações Toast
 │   ├── data-input.js       # Gestão do array de critérios e alternativas
 │   ├── comparison.js       # Lógica do assistente de definição de scores (âncoras)
-│   ├── swing-weighting.js  # Algoritmos de cálculo de pesos (Ad-hoc, Rank-Sum, Swing)
+│   ├── swing-weighting.js  # Algoritmos de cálculo de pesos (Rank-Sum, Swing)
 │   ├── decision-logic.js   # Controle de fluxo, validações e cálculo dos resultados
 │   ├── ai-suggestions.js   # Comunicação via Fetch com o Google Gemini
 │   ├── auto-save.js        # Funções do localStorage (salvar/carregar matrizes)
 │   └── export-utils.js     # Rotinas para serialização JSON e exportação de Imagem
+│
+├── tests/               # Testes de regressão executados em navegador real
+│   ├── regression.html     # Cenários, que dirigem o index.html por um iframe
+│   └── run.py              # Executa os cenários no Firefox headless
 │
 └── libs/                # Dependências locais
     └── html2canvas.min.js
@@ -111,6 +114,18 @@ Como o projeto possui uma arquitetura 100% *client-side* (estática), nenhuma in
    cd preference-matrix
    ```
 2. Abra o arquivo `index.html` em qualquer navegador web moderno (duplo clique no arquivo já será suficiente).
+
+---
+
+## 🧪 Testes
+
+Os testes de regressão não têm dependências além de Python 3 e Firefox:
+
+```bash
+python3 tests/run.py
+```
+
+Também é possível vê-los no navegador: rode `python3 -m http.server` na raiz do projeto e abra `http://localhost:8000/tests/regression.html`.
 
 ---
 
