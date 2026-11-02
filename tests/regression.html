@@ -1418,7 +1418,17 @@ test('Todo campo visível tem nome acessível', async () => {
 });
 
 // ---- Execução ----
+// Os testes apagam o localStorage do domínio: fora da máquina local, destruiriam as
+// análises e a chave de API de quem abrisse esta página no site publicado
+const isLocalPage = ['localhost', '127.0.0.1'].includes(location.hostname);
+
 (async () => {
+    if (!isLocalPage) {
+        document.getElementById('summary').textContent =
+            'Estes testes só rodam localmente, porque apagam os dados salvos no navegador. Veja o README.';
+        return;
+    }
+
     const list = document.getElementById('list');
     for (const { name, fn } of tests) {
         let error = null;

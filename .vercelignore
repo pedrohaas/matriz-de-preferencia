@@ -1,0 +1,2 @@
+# Os testes apagam o localStorage do domínio e não devem ser publicados
+tests/
