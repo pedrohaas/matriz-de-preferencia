@@ -23,6 +23,7 @@ function createInitialState() {
         weights: {},          // Pesos em uso, por id de critério
         originalWeights: {},  // Pesos calculados pelo método, antes dos sliders
         autoNormalize: true,
+        scenarios: [],        // Conjuntos de pesos salvos: [{ id, name, weights }]
         aiSuggestionKey: null, // Título + descrição que já receberam sugestões da IA
     };
 }

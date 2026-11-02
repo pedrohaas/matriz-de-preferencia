@@ -71,6 +71,7 @@ function removeCriterion(id) {
     delete state.comparisonData[id];
     delete state.weights[id];
     forgetCriterionInputs(id);
+    state.scenarios.forEach(scenario => delete scenario.weights[id]);
 
     renderItemList('criterion');
     scheduleAutoSave();

@@ -119,6 +119,11 @@ function close(actual, expected, label) {
     if (Math.abs(actual - expected) > 1e-6) throw new Error(`${label}: esperado ${expected}, obtido ${actual}`);
 }
 
+// Larguras lidas do CSS: o navegador as arredonda
+function closePercent(actual, expected, label) {
+    if (Math.abs(actual - expected) > 0.01) throw new Error(`${label}: esperado ${expected}, obtido ${actual}`);
+}
+
 function closeWeights(actual, expected) {
     equal(Object.keys(actual).sort(), Object.keys(expected).sort(), 'critérios dos pesos');
     Object.keys(expected).forEach(c => close(actual[c], expected[c], `peso de ${c}`));
@@ -1240,6 +1245,9 @@ for (const width of [320, 390, 768]) {
         await w.nextStep();
         equal(read(w, 'state.currentStep'), 6, 'resultado');
         assertFits(w, 'resultado');
+        el(w, 'scenarioName').value = `Cenário${long}`;
+        action(w, 'saveScenario').click();
+        assertFits(w, 'cenários');
     });
 }
 
@@ -1417,6 +1425,342 @@ test('Todo campo visível tem nome acessível', async () => {
     w.goToStep(2);
     w.document.querySelector('[data-action="editItem"]').click();
     unnamed('edição');
+});
+
+// ---- Gráfico de contribuição ----
+async function resultsWithTradeoff(w) {
+    await setup(w, ['Custo', 'Prazo'], ['A', 'B']);
+    score(w, 'A', 10, 'B', 0);
+    goToCriterion(w, 1);
+    score(w, 'B', 10, 'A', 0);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+}
+
+const chartRow = (w, index) => w.document.querySelectorAll('#contributionChart .chart-row')[index];
+const segmentWidths = (w, index) => [...chartRow(w, index).querySelectorAll('.chart-segment')].map(s => parseFloat(s.style.width));
+
+test('Núcleo: contribuição é nota × peso e soma a nota final', async () => {
+    const w = await load();
+    const data = scoresTable({ c1: { a: 10 }, c2: { a: 4 } });
+    const parts = JSON.parse(w.JSON.stringify(w.computeContributions(['c1', 'c2'], 'a', data, { c1: 0.75, c2: 0.25 })));
+    equal(parts.map(p => p.id), ['c1', 'c2'], 'critérios');
+    close(parts[0].value, 7.5, 'c1');
+    close(parts[1].value, 1, 'c2');
+    close(w.computeFinalScores(['c1', 'c2'], ['a'], data, { c1: 0.75, c2: 0.25 }).a, 8.5, 'soma');
+});
+
+test('Gráfico segue o ranking, com barras proporcionais à nota', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    equal(chartRow(w, 0).querySelector('.chart-row-name').textContent, 'A', '1º lugar primeiro');
+    equal(chartRow(w, 0).querySelector('.chart-row-total').textContent, '6.67', 'total');
+    closePercent(segmentWidths(w, 0)[0], 200 / 3, 'barra de A');
+    equal(segmentWidths(w, 0).length, 1, 'nota 0 não gera trecho');
+    closePercent(segmentWidths(w, 1)[0], 100 / 3, 'barra de B');
+    equal([...w.document.querySelectorAll('.chart-legend-item')].map(e => e.textContent.trim()), ['Custo', 'Prazo'], 'legenda');
+});
+
+test('Gráfico acompanha os sliders e cada critério mantém a cor', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    const swatch = () => w.document.querySelector('.chart-legend-swatch').style.background;
+    const before = swatch();
+    setField(w, `weight-${criterionId(w, 'Custo')}`, '20');
+    equal(chartRow(w, 0).querySelector('.chart-row-name').textContent, 'B', 'nova líder');
+    closePercent(segmentWidths(w, 0)[0], 80, 'barra de B');
+    equal(swatch(), before, 'cor do critério');
+});
+
+test('Gráfico descreve as barras em texto e escapa os nomes', async () => {
+    const w = await load();
+    await setup(w, ['<b>C</b>', 'Prazo'], ['<i>A</i>', 'B']);
+    score(w, '<i>A</i>', 10, 'B', 2);
+    goToCriterion(w, 1);
+    score(w, '<i>A</i>', 8, 'B', 2);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    const chart = el(w, 'contributionChart');
+    equal(chart.querySelectorAll('b, i').length, 0, 'escape');
+    const description = chart.querySelector('[role="img"]').getAttribute('aria-label');
+    equal(description.includes('<i>A</i>: nota final 9.33. <b>C</b> 6.67, Prazo 2.67.'), true, `descrição: ${description}`);
+    equal(chart.querySelector('[data-tooltip]').dataset.tooltip, '<i>A</i> · <b>C</b>: 10 × 66.7% = 6.67', 'dica');
+});
+
+test('Dica aparece ao passar o mouse sobre um trecho', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    const tooltip = w.document.querySelector('.chart-tooltip');
+    equal(tooltip.hidden, true, 'oculta');
+    w.document.querySelector('[data-tooltip]').dispatchEvent(new w.PointerEvent('pointermove', { bubbles: true, clientX: 50, clientY: 50 }));
+    equal(tooltip.hidden, false, 'visível');
+    equal(tooltip.textContent, 'A · Custo: 10 × 66.7% = 6.67', 'texto');
+    w.document.body.dispatchEvent(new w.PointerEvent('pointermove', { bubbles: true }));
+    equal(tooltip.hidden, true, 'oculta ao sair');
+});
+
+test('Mais de 8 critérios somam em "Outros", sem repetir cor', async () => {
+    const w = await load();
+    const names = Array.from({ length: 10 }, (_, i) => `C${i + 1}`);
+    await setup(w, names, ['A', 'B']);
+    names.forEach((_, i) => { goToCriterion(w, i); score(w, 'A', 10, 'B', 2); });
+    await w.nextStep();
+    rankSum(w, names.map((_, i) => i + 1));
+    await w.nextStep();
+    const items = [...w.document.querySelectorAll('.chart-legend-item')];
+    equal(items.length, 8, 'itens da legenda');
+    equal(items[7].textContent.trim(), 'Outros (3)', 'agrupados');
+    const colors = [...w.document.querySelectorAll('.chart-legend-swatch')].map(e => e.style.background);
+    equal(new Set(colors).size, 8, 'cores distintas');
+    const total = segmentWidths(w, 0).reduce((sum, width) => sum + width, 0);
+    closePercent(total, 100, 'barra soma a nota inteira');
+});
+
+test('Exatamente 8 critérios não precisam de "Outros"', async () => {
+    const w = await load();
+    const names = Array.from({ length: 8 }, (_, i) => `C${i + 1}`);
+    await setup(w, names, ['A', 'B']);
+    names.forEach((_, i) => { goToCriterion(w, i); score(w, 'A', 10, 'B', 2); });
+    await w.nextStep();
+    rankSum(w, names.map((_, i) => i + 1));
+    await w.nextStep();
+    const items = [...w.document.querySelectorAll('.chart-legend-item')].map(e => e.textContent.trim());
+    equal(items[7], 'C8', 'último critério');
+});
+
+test('Escala do gráfico cresce se os pesos passarem de 100%', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    const checkbox = el(w, 'autoNormalizeCheckbox');
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new w.Event('change', { bubbles: true }));
+    setField(w, `weight-${criterionId(w, 'Custo')}`, '100');
+    setField(w, `weight-${criterionId(w, 'Prazo')}`, '100');
+    equal(segmentWidths(w, 0).every(width => width <= 100), true, 'nenhum trecho estoura');
+});
+
+// ---- Cenários ----
+function saveScenarioNamed(w, name) {
+    el(w, 'scenarioName').value = name;
+    action(w, 'saveScenario').click();
+}
+const scenarioHeaders = w => [...w.document.querySelectorAll('.scenario-table thead th')].map(e => e.textContent);
+const scenarioCell = (w, row, column) => w.document.querySelectorAll('.scenario-table tbody tr')[row].querySelectorAll('td')[column].textContent.trim();
+const scenarioId = (w, name) => read(w, `state.scenarios.find(s => s.name === ${JSON.stringify(name)}).id`);
+
+test('Núcleo: pesos de cenário são normalizados e recusados se incompletos', async () => {
+    const w = await load();
+    closeWeights(w.scenarioWeightsFor({ weights: { a: 2, b: 2 } }, ['a', 'b']), { a: 0.5, b: 0.5 });
+    closeWeights(w.scenarioWeightsFor({ weights: { a: 0.6, b: 0.2 } }, ['a', 'b']), { a: 0.75, b: 0.25 });
+    equal(w.scenarioWeightsFor({ weights: { a: 1 } }, ['a', 'b']), null, 'critério novo');
+    equal(w.scenarioWeightsFor({ weights: { a: 0, b: 0 } }, ['a', 'b']), null, 'zerados');
+});
+
+test('Núcleo: comparação traz posições e vencedoras de cada conjunto', async () => {
+    const w = await load();
+    const data = scoresTable({ c1: { a: 10, b: 0 }, c2: { a: 0, b: 10 } });
+    const result = JSON.parse(w.JSON.stringify(w.compareWeightSets(['c1', 'c2'], ['a', 'b'], data, [
+        { id: 'x', weights: { c1: 0.8, c2: 0.2 } },
+        { id: 'y', weights: { c1: 0.5, c2: 0.5 } },
+    ])));
+    equal(result[0].positions, { a: 1, b: 2 }, 'posições');
+    equal(result[0].winners, ['a'], 'vencedora');
+    equal(result[1].positions, { a: 1, b: 1 }, 'empate');
+    equal(result[1].winners.length, 2, 'duas vencedoras');
+});
+
+test('Cenários são salvos e comparados lado a lado', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    equal(el(w, 'scenarioPanel').textContent.includes('salve um cenário'), true, 'estado vazio');
+
+    setField(w, `weight-${criterionId(w, 'Custo')}`, '80');
+    saveScenarioNamed(w, 'Foco em custo');
+    setField(w, `weight-${criterionId(w, 'Custo')}`, '20');
+    saveScenarioNamed(w, 'Foco em prazo');
+    equal(el(w, 'scenarioName').value, '', 'campo limpo');
+
+    equal(scenarioHeaders(w), ['Alternativa', 'Pesos atuais', 'Método (Rank-Sum)', 'Foco em custo', 'Foco em prazo'], 'colunas');
+    // Linhas na ordem dos pesos atuais (20/80): B primeiro. Colunas: atuais, método, custo, prazo.
+    equal(scenarioCell(w, 0, 0).includes('1º · 8.00'), true, 'B nos pesos atuais');
+    equal(scenarioCell(w, 0, 1), '2º · 3.33', 'B no método');
+    equal(scenarioCell(w, 0, 2), '2º · 2.00', 'B no cenário de custo');
+    equal(scenarioCell(w, 1, 2).includes('1º · 8.00'), true, 'A no cenário de custo');
+    equal(el(w, 'scenarioPanel').textContent.includes('A vencedora muda entre os cenários'), true, 'conclusão');
+});
+
+test('Comparação diz quando a vencedora é a mesma', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    saveScenarioNamed(w, 'Único');
+    equal(el(w, 'scenarioPanel').textContent.includes('mesma em todos os cenários'), true, 'conclusão');
+});
+
+test('Aplicar cenário carrega os pesos, e excluir o remove', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    setField(w, `weight-${criterionId(w, 'Custo')}`, '80');
+    saveScenarioNamed(w, 'Foco');
+    action(w, 'equalizeWeights').click();
+    w.document.querySelector(`[data-action="applyScenario"][data-id="${scenarioId(w, 'Foco')}"]`).click();
+    closeWeights(weightsByName(w), { Custo: 0.8, Prazo: 0.2 });
+    equal(el(w, `weight-input-${criterionId(w, 'Custo')}`).value, '80.0', 'slider');
+    w.document.querySelector(`[data-action="deleteScenario"][data-id="${scenarioId(w, 'Foco')}"]`).click();
+    equal(read(w, 'state.scenarios'), [], 'excluído');
+    equal(w.document.querySelector('.scenario-table'), null, 'tabela removida');
+});
+
+test('Nome de cenário é validado e o Enter salva', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    const count = () => read(w, 'state.scenarios.length');
+    saveScenarioNamed(w, '   ');
+    equal(count(), 0, 'vazio');
+    saveScenarioNamed(w, 'x'.repeat(61));
+    equal(count(), 0, 'longo');
+    const input = el(w, 'scenarioName');
+    input.value = 'Pelo teclado';
+    input.focus();
+    key(w, 'Enter');
+    equal(count(), 1, 'Enter');
+    saveScenarioNamed(w, 'Pelo teclado');
+    equal(count(), 1, 'repetido');
+    for (let i = 0; i < 9; i++) saveScenarioNamed(w, `C${i}`);
+    equal(count(), 8, 'limite');
+});
+
+test('Cenário com HTML no nome é exibido como texto', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    saveScenarioNamed(w, '<img src=x onerror="window.__xss=1">');
+    await sleep(150);
+    equal(w.__xss ?? null, null, 'código executado');
+    equal(w.document.querySelectorAll('#scenarioPanel img').length, 0, 'elementos');
+    equal(scenarioHeaders(w).includes('<img src=x onerror="window.__xss=1">'), true, 'texto');
+});
+
+test('Mudar critérios não quebra os cenários', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2', 'C3'], ['A', 'B']);
+    [0, 1, 2].forEach(i => { goToCriterion(w, i); score(w, 'A', 10, 'B', 2); });
+    await w.nextStep();
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    saveScenarioNamed(w, 'Antes');
+
+    // Remover: os pesos restantes são renormalizados
+    w.goToStep(2);
+    w.removeCriterion(criterionId(w, 'C1'));
+    w.goToStep(6);
+    rankSum(w, [1, 2]);
+    w.goToStep(6);
+    equal(read(w, 'state.currentStep'), 6, 'resultado');
+    equal(scenarioHeaders(w).includes('Antes'), true, 'ainda comparável');
+
+    // Adicionar: o cenário fica marcado como desatualizado
+    w.goToStep(2);
+    el(w, 'criterionInput').value = 'C4';
+    w.addCriterion();
+    w.goToStep(4);
+    goToCriterion(w, 2);
+    score(w, 'A', 10, 'B', 2);
+    w.goToStep(5);
+    rankSum(w, [1, 2, 3]);
+    w.goToStep(6);
+    equal(read(w, 'state.currentStep'), 6, 'resultado após adicionar');
+    equal(el(w, 'scenarioPanel').textContent.includes('Os critérios mudaram'), true, 'aviso');
+    equal(w.document.querySelector('.scenario-table'), null, 'fora da comparação');
+    equal(w.document.querySelector('[data-action="applyScenario"]'), null, 'sem aplicar');
+    equal(w.document.querySelector('[data-action="deleteScenario"]') !== null, true, 'pode excluir');
+});
+
+test('Cenários são salvos, retomados, exportados e importados', async () => {
+    let w = await load();
+    await resultsWithTradeoff(w);
+    setField(w, `weight-${criterionId(w, 'Custo')}`, '80');
+    saveScenarioNamed(w, 'Foco');
+    w.flushAutoSave();
+    w = await openPage();
+    openFromList(w, 'Teste');
+    equal(scenarioHeaders(w).includes('Foco'), true, 'retomado');
+
+    const data = JSON.parse(w.JSON.stringify(w.buildExportData()));
+    close(data.cenarios[0].pesos.Custo, 0.8, 'exportado');
+    w.restart();
+    w.importAnalysisText(JSON.stringify(data));
+    await w.nextStep();
+    equal(scenarioHeaders(w).includes('Foco'), true, 'importado');
+
+    w.importAnalysisText(JSON.stringify({ ...data, cenarios: [
+        { nome: 'Bom', pesos: { Custo: 1, Prazo: 1, Inexistente: 5, constructor: 3 } },
+        { nome: '', pesos: {} }, { nome: 'Sem pesos' }, 'x', null, { nome: 'Bom', pesos: {} },
+        { nome: 'Negativo', pesos: { Custo: -1, Prazo: 'x' } },
+    ] }));
+    equal(read(w, 'state.scenarios').map(s => s.name), ['Bom', 'Negativo'], 'inválidos ignorados');
+    equal(Object.keys(read(w, 'state.scenarios[0].weights')).length, 2, 'só critérios existentes');
+    equal(Object.keys(read(w, 'state.scenarios[1].weights')).length, 0, 'pesos inválidos fora');
+});
+
+// ---- Relatório ----
+test('Relatório reúne a análise e abre a impressão', async () => {
+    const w = await load();
+    await setup(w, ['<b>Custo</b>', 'Prazo'], ['A', 'B', 'C']);
+    score(w, 'A', 10, 'B', 0, ['B']);
+    goToCriterion(w, 1);
+    score(w, 'A', 10, 'B', 0, ['B']);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    saveScenarioNamed(w, 'Cenário X');
+
+    let printed = 0;
+    w.print = () => { printed++; };
+    action(w, 'printReport').click();
+    equal(printed, 1, 'impressão');
+
+    const report = el(w, 'printReport');
+    const text = report.textContent;
+    for (const part of ['Teste', 'Recomendação', 'Ranking', 'Contribuição de cada critério', 'Pesos utilizados',
+        'Matriz de decisão', 'Alternativas dominadas', 'Análise de sensibilidade', 'Comparação de cenários', 'Cenário X', 'Rank-Sum']) {
+        equal(text.includes(part), true, `seção: ${part}`);
+    }
+    equal(report.querySelectorAll('b').length, 0, 'nomes escapados');
+    equal(report.querySelectorAll('.chart-segment').length > 0, true, 'gráfico');
+    equal(w.getComputedStyle(report).display, 'none', 'fora da tela normal');
+});
+
+test('Relatório sem cenários nem dominância omite as seções', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    w.print = () => {};
+    action(w, 'printReport').click();
+    const text = el(w, 'printReport').textContent;
+    equal(text.includes('Comparação de cenários'), false, 'cenários');
+    equal(text.includes('Alternativas dominadas'), false, 'dominância');
+});
+
+test('Imagem exportada leva o gráfico e esconde os controles de cenário', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    saveScenarioNamed(w, 'Foco');
+    let captured = null;
+    w.html2canvas = async element => {
+        captured = {
+            segments: element.querySelectorAll('.chart-segment').length,
+            controls: [...element.querySelectorAll('.scenario-controls')].map(e => e.style.display),
+            table: element.querySelectorAll('.scenario-table').length,
+        };
+        return { toBlob() {} };
+    };
+    action(w, 'saveResultsImage').click();
+    await sleep(500);
+    equal(captured.segments > 0, true, 'gráfico');
+    equal(captured.table, 1, 'comparação');
+    equal(captured.controls.every(display => display === 'none'), true, 'controles ocultos');
 });
 
 // ---- Site oficial ----

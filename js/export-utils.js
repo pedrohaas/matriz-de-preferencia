@@ -34,6 +34,14 @@ function buildExportData() {
         }),
         scoresFinais: Object.fromEntries(state.alternatives.map(a => [a.name, finals[a.id]])),
         ordenacao: sortedIds.map(alternativeName),
+        cenarios: state.scenarios.map(scenario => ({
+            nome: scenario.name,
+            pesos: Object.fromEntries(
+                state.criteria
+                    .filter(criterion => Number.isFinite(scenario.weights[criterion.id]))
+                    .map(criterion => [criterion.name, scenario.weights[criterion.id]])
+            ),
+        })),
     };
 }
 
@@ -100,7 +108,7 @@ async function saveResultsImage() {
     });
 
     // Esconder na imagem os botões de ajuste de pesos e de exportação
-    clone.querySelectorAll('.weight-action-buttons, .results-export-actions').forEach(element => {
+    clone.querySelectorAll('.weight-action-buttons, .results-export-actions, .scenario-controls').forEach(element => {
         element.style.display = 'none';
     });
 
@@ -248,7 +256,27 @@ function buildWeightingInputs(raw, criterionIdByName, criteriaCount) {
 }
 
 // Monta uma análise a partir de dados identificados por nome. Lança erro se forem inválidos.
-function buildStateFromNames({ title, description, criteria, alternatives, comparison, method, inputs }) {
+// Cenários são opcionais: os que tiverem dados inválidos são ignorados
+function buildScenarios(raw, criterionIdByName, analysis) {
+    if (!Array.isArray(raw)) return [];
+
+    const scenarios = [];
+    raw.slice(0, MAX_SCENARIOS).forEach(item => {
+        const name = typeof item?.nome === 'string' ? item.nome.trim() : '';
+        if (!name || name.length > MAX_SCENARIO_NAME_LENGTH || scenarios.some(s => s.name === name)) return;
+        if (!item.pesos || typeof item.pesos !== 'object') return;
+
+        const weights = {};
+        Object.entries(item.pesos).forEach(([criterionNameKey, weight]) => {
+            const id = criterionIdByName.get(criterionNameKey);
+            if (id && Number.isFinite(weight) && weight >= 0) weights[id] = weight;
+        });
+        scenarios.push({ id: `s${analysis.nextId++}`, name, weights });
+    });
+    return scenarios;
+}
+
+function buildStateFromNames({ title, description, criteria, alternatives, comparison, method, inputs, scenarios }) {
     if (typeof title !== 'string' || !title.trim()) throw new Error('O título do problema está ausente.');
 
     const analysis = createInitialState();
@@ -271,6 +299,7 @@ function buildStateFromNames({ title, description, criteria, alternatives, compa
 
     analysis.weightingMethod = WEIGHTING_METHODS.includes(method) ? method : '';
     analysis.weightingInputs = buildWeightingInputs(inputs, criterionIdByName, analysis.criteria.length);
+    analysis.scenarios = buildScenarios(scenarios, criterionIdByName, analysis);
 
     return analysis;
 }
@@ -294,6 +323,7 @@ function importAnalysisText(text) {
         comparison: data.resultadosBrutos,
         method: data.metodoId,
         inputs: data.entradas,
+        scenarios: data.cenarios,
     });
 
     // Os pesos são recalculados pelo formulário ao avançar para o resultado

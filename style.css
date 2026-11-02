@@ -974,6 +974,7 @@ textarea:focus {
     color: var(--text-soft);
 }
 
+.sensitivity-note,
 .insight-box p.sensitivity-note {
     color: var(--text-soft);
     font-size: 0.8rem;
@@ -1377,6 +1378,281 @@ footer {
     gap: 12px;
 }
 
+/* ---- GRÁFICO DE CONTRIBUIÇÃO ---- */
+.chart-subtitle {
+    color: var(--text-soft);
+}
+
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-bottom: 14px;
+    font-size: 0.85rem;
+    color: var(--text-mid);
+}
+
+.chart-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    overflow-wrap: anywhere;
+}
+
+.chart-legend-swatch {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    border-radius: 3px;
+}
+
+.chart-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chart-row,
+.chart-axis {
+    display: grid;
+    grid-template-columns: minmax(0, 170px) minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 10px;
+}
+
+.chart-row-name {
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--text-dark);
+    overflow-wrap: anywhere;
+}
+
+.chart-row-total {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    text-align: right;
+}
+
+.chart-track {
+    background: #eef0f1;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.chart-bar {
+    display: flex;
+    height: 22px;
+    min-width: 0;
+}
+
+/* A separação entre trechos é na cor do fundo da trilha, não um contorno */
+.chart-segment {
+    display: block;
+    height: 100%;
+    flex-shrink: 0;
+    border-right: 2px solid #eef0f1;
+}
+
+.chart-segment:last-child {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+}
+
+.chart-axis {
+    grid-template-columns: minmax(0, 170px) minmax(0, 1fr) 44px;
+    margin-top: 4px;
+    font-size: 0.75rem;
+    color: var(--text-soft);
+    position: relative;
+}
+
+.chart-axis span:nth-child(1) { grid-column: 2; grid-row: 1; justify-self: start; }
+.chart-axis span:nth-child(2) { grid-column: 2; grid-row: 1; justify-self: center; }
+.chart-axis span:nth-child(3) { grid-column: 2; grid-row: 1; justify-self: end; }
+
+.chart-tooltip {
+    position: fixed;
+    z-index: 9998;
+    max-width: 280px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: var(--text-dark);
+    color: white;
+    font-size: 0.8rem;
+    pointer-events: none;
+}
+
+/* ---- CENÁRIOS ---- */
+.scenario-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.scenario-form input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
+}
+
+.scenario-form .btn {
+    flex-shrink: 0;
+}
+
+.scenario-empty,
+.insight-box p.scenario-empty {
+    margin: 0;
+    color: var(--text-soft);
+}
+
+.scenario-table th[scope="row"] {
+    background: none;
+    color: var(--text-dark);
+    text-align: left;
+    overflow-wrap: anywhere;
+    border-bottom: 1px solid var(--border);
+}
+
+.scenario-table td {
+    white-space: nowrap;
+}
+
+.scenario-winner {
+    background: var(--success-bg);
+}
+
+.scenario-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.scenario-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.scenario-item-info {
+    flex: 1;
+    min-width: 180px;
+    overflow-wrap: anywhere;
+}
+
+.scenario-item-info small {
+    display: block;
+    color: var(--text-soft);
+}
+
+.scenario-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ---- RELATÓRIO PARA IMPRESSÃO ---- */
+#printReport {
+    display: none;
+}
+
+@media print {
+    @page {
+        margin: 16mm;
+    }
+
+    body {
+        background: white;
+        padding: 0;
+        min-height: 0;
+    }
+
+    body > :not(#printReport) {
+        display: none !important;
+    }
+
+    #printReport {
+        display: block;
+        font-size: 11pt;
+        color: #000;
+    }
+
+    /* Sem isto, o navegador omite as cores do gráfico e das tabelas */
+    #printReport * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .report-header {
+        padding-bottom: 8pt;
+        margin-bottom: 12pt;
+        border-bottom: 2pt solid var(--primary);
+    }
+
+    .report-header h1 {
+        font-size: 18pt;
+        line-height: 1.2;
+        color: var(--primary);
+    }
+
+    .report-meta,
+    .report-note {
+        font-size: 9pt;
+        color: var(--text-soft);
+    }
+
+    /* Título e tabela na mesma página. Seção maior que a página ainda se divide. */
+    .report-section {
+        margin-bottom: 14pt;
+        break-inside: avoid;
+    }
+
+    .report-section h2 {
+        margin-bottom: 6pt;
+        font-size: 13pt;
+        color: var(--primary);
+    }
+
+    .report-recommendation {
+        font-size: 15pt;
+        font-weight: 700;
+    }
+
+    #printReport tr,
+    #printReport .chart-row,
+    #printReport .scenario-item,
+    #printReport .insight-box {
+        break-inside: avoid;
+    }
+
+    #printReport .matrix-table {
+        box-shadow: none;
+        border-radius: 0;
+    }
+
+    #printReport .matrix-table th,
+    #printReport .matrix-table td {
+        padding: 5pt 7pt;
+        font-size: 9.5pt;
+    }
+
+    #printReport .table-scroll {
+        overflow: visible;
+    }
+
+    #printReport .scenario-controls {
+        display: none;
+    }
+}
+
 /* ---- ACESSIBILIDADE ---- */
 button:focus-visible,
 a:focus-visible,
@@ -1445,6 +1721,12 @@ input[type="checkbox"]:focus-visible {
     .results { padding: 1rem; }
     .insight-box { padding: 14px; }
     .results-export-actions { flex-wrap: wrap; }
+
+    .chart-row, .chart-axis { grid-template-columns: minmax(0, 1fr) 44px; }
+    .chart-row-name { grid-column: 1 / -1; }
+    .chart-axis span:nth-child(n) { grid-column: 1; }
+    .scenario-form { flex-wrap: wrap; }
+    .scenario-form .btn { width: 100%; justify-content: center; }
 
     .toast-notification { left: 12px; right: 12px; top: 12px; max-width: none; }
     .modal-footer { flex-wrap: wrap; }

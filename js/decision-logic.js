@@ -444,8 +444,23 @@ function displayResults() {
         </div>
 
         <div class="insight-box" style="margin-top: 30px;">
+            <h3>📊 Contribuição de Cada Critério</h3>
+            <div id="contributionChart">${renderContributionChart()}</div>
+        </div>
+
+        <div class="insight-box" style="margin-top: 30px;">
             <h3>🔎 Análise de Sensibilidade</h3>
             <div id="sensitivityPanel">${renderSensitivity()}</div>
+        </div>
+
+        <div class="insight-box" style="margin-top: 30px;">
+            <h3>🧪 Comparação de Cenários</h3>
+            <p>Salve os pesos atuais como um cenário, ajuste os sliders e compare os rankings. Útil para discutir pontos de vista diferentes sobre a mesma decisão.</p>
+            <div class="scenario-form scenario-controls">
+                <input type="text" id="scenarioName" aria-label="Nome do cenário" placeholder="Ex: Foco em custo" maxlength="${MAX_SCENARIO_NAME_LENGTH}" data-enter="saveScenario">
+                <button type="button" class="btn btn-primary btn-small" data-action="saveScenario">Salvar cenário</button>
+            </div>
+            <div id="scenarioPanel">${renderScenarioContent()}</div>
         </div>
 
         <div style="margin-top: 30px;">
@@ -463,6 +478,7 @@ function displayResults() {
         <div class="results-export-actions" style="margin-top: 20px; text-align: center; display: flex; gap: 1rem; justify-content: center;">
             <button class="btn btn-secondary" data-action="saveResults">💾 Salvar JSON</button>
             <button class="btn btn-secondary" data-action="saveResultsImage">🖼️ Salvar Imagem</button>
+            <button class="btn btn-secondary" data-action="printReport">📄 Relatório em PDF</button>
         </div>
     `;
 
@@ -530,7 +546,9 @@ function updateResultsDisplay() {
     document.getElementById('matrixBody').innerHTML = renderMatrixRows(finals, sortedIds);
     document.getElementById('topAlternative').textContent = getRecommendationLabel(finals, sortedIds);
     document.getElementById('resultsMethod').textContent = getResultsMethodLabel();
+    document.getElementById('contributionChart').innerHTML = renderContributionChart();
     document.getElementById('sensitivityPanel').innerHTML = renderSensitivity();
+    renderScenarioPanel();
 }
 
 function getWeightingMethodName() {
