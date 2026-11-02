@@ -54,7 +54,7 @@ function saveResults() {
 async function saveResultsImage() {
     const container = document.getElementById('resultsInterface');
     if (!container || container.innerHTML.trim() === '') {
-        alert('Execute a análise antes de salvar a imagem.');
+        showError('Execute a análise antes de salvar a imagem.');
         return;
     }
 
@@ -145,7 +145,7 @@ async function saveResultsImage() {
         });
     } catch (err) {
         console.error('Erro ao gerar imagem:', err);
-        alert('Não foi possível gerar a imagem dos resultados.');
+        showError('Não foi possível gerar a imagem dos resultados.');
     } finally {
         document.body.removeChild(exportWrapper);
         if (btnSalvar) {

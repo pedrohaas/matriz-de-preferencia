@@ -966,11 +966,12 @@ test('Resposta da IA sem texto gera mensagem compreensível', async () => {
     const w = await load();
     localStorage.setItem('gemini_api_key', 'x'.repeat(30));
     w.fetch = async () => new Response(JSON.stringify({ candidates: [{ content: { role: 'model' }, finishReason: 'MAX_TOKENS' }] }), { status: 200 });
-    let message = null;
-    w.alert = text => { message = text; };
     setField(w, 'problemTitle', 'Teste');
+    let alerted = false;
+    w.alert = () => { alerted = true; };
     await w.nextStep();
-    equal(message.includes('não retornou uma lista'), true, 'mensagem');
+    equal(w.document.querySelector('.toast-error .toast-text').textContent.includes('não retornou uma lista'), true, 'mensagem');
+    equal(alerted, false, 'sem janela bloqueante');
     equal(read(w, 'state.currentStep'), 2, 'segue sem sugestões');
 });
 
@@ -1415,6 +1416,83 @@ test('Todo campo visível tem nome acessível', async () => {
     w.goToStep(2);
     w.document.querySelector('[data-action="editItem"]').click();
     unnamed('edição');
+});
+
+// ---- Site oficial ----
+function fakeStorage(items) {
+    const data = { ...items };
+    return { getItem: k => data[k] ?? null, setItem: (k, v) => { data[k] = v; }, data };
+}
+
+function redirectFrom(w, hostname, storage) {
+    let target = null;
+    w.redirectToCanonicalSite({ hostname, replace: url => { target = url; } }, storage);
+    return target;
+}
+
+test('Só o endereço antigo redireciona, sem levar a chave de API', async () => {
+    const w = await load();
+    const site = 'https://matriz-de-preferencia.vercel.app/';
+    equal(redirectFrom(w, 'matriz-de-preferencia.vercel.app', fakeStorage({})), null, 'site oficial');
+    equal(redirectFrom(w, '127.0.0.1', fakeStorage({})), null, 'máquina local');
+    equal(redirectFrom(w, 'pedrohaas.github.io', fakeStorage({})), site, 'sem dados');
+
+    const storage = fakeStorage({ analisesSalvas: '{"a":1}', gemini_api_key: 'CHAVE-SECRETA' });
+    const first = redirectFrom(w, 'pedrohaas.github.io', storage);
+    equal(first.startsWith(`${site}#migrar=`), true, 'leva as análises');
+    equal(decodeURIComponent(first).includes('CHAVE-SECRETA'), false, 'chave fora da URL');
+    equal(redirectFrom(w, 'pedrohaas.github.io', storage), site, 'só na primeira visita');
+
+    const huge = fakeStorage({ analisesSalvas: 'x'.repeat(2000000) });
+    equal(redirectFrom(w, 'pedrohaas.github.io', huge), site, 'dados grandes demais ficam');
+    equal(huge.getItem('analisesMigradasParaVercel'), null, 'não marca como migrado');
+});
+
+const migrationHash = (analyses, legacy = null) =>
+    '#migrar=' + encodeURIComponent(JSON.stringify({ analyses: JSON.stringify(analyses), legacy: legacy && JSON.stringify(legacy) }));
+
+test('Análises do endereço antigo chegam com confirmação e validadas', async () => {
+    const w = await load();
+    const valid = (id, title) => ({
+        savedAt: '2026-01-01T00:00:00.000Z',
+        state: { matrixId: id, problemTitle: title, criteria: [], alternatives: [], currentStep: 1 },
+    });
+    const incoming = { m1: valid('m1', 'Trazida'), m2: { state: { matrixId: 'm2', criteria: 'x' } }, m3: valid('m3', 'Nova') };
+    localStorage.setItem('analisesSalvas', JSON.stringify({ m3: valid('m3', 'Local') }));
+
+    let question = null;
+    w.confirm = text => { question = text; return false; };
+    w.receiveMigratedAnalyses(migrationHash(incoming));
+    equal(question.includes('2 análise(s)'), true, 'conta só as válidas');
+    equal(Object.keys(savedAnalyses()), ['m3'], 'recusar não grava nada');
+
+    w.confirm = () => true;
+    w.receiveMigratedAnalyses(migrationHash(incoming));
+    const saved = savedAnalyses();
+    equal(Object.keys(saved).sort(), ['m1', 'm3'], 'inválida descartada');
+    equal(saved.m3.state.problemTitle, 'Local', 'não sobrescreve o que já existe');
+    equal(w.location.hash, '', 'dados saem da URL');
+});
+
+test('Matrizes do formato antigo também são trazidas', async () => {
+    const w = await load();
+    w.receiveMigratedAnalyses(migrationHash({}, { Antiga: { problemTitle: 'Antiga', criteria: ['C1'], alternatives: ['A'] } }));
+    w.migrateLegacyAnalyses();
+    equal(Object.values(savedAnalyses()).map(a => a.state.problemTitle), ['Antiga'], 'convertida');
+});
+
+test('Link de migração malformado ou com HTML é inofensivo', async () => {
+    const w = await load();
+    let asked = false;
+    w.confirm = () => { asked = true; return true; };
+    for (const hash of ['#migrar=%E0%A4%A', '#migrar=nao-json', '#outra-coisa', migrationHash({ a: null })]) {
+        w.receiveMigratedAnalyses(hash);
+    }
+    equal(asked, false, 'nada a confirmar');
+    w.receiveMigratedAnalyses(migrationHash({ m: { savedAt: 'x', state: { matrixId: 'm', problemTitle: '<img src=x onerror="window.__xss=1">', criteria: [], alternatives: [] } } }));
+    w.renderSavedAnalyses();
+    await sleep(150);
+    equal(w.__xss ?? null, null, 'código executado');
 });
 
 // ---- Execução ----

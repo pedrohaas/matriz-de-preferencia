@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
         scheduleAutoSave();
     });
 
+    receiveMigratedAnalyses(location.hash);
     migrateLegacyAnalyses();
     renderSavedAnalyses();
 });

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Executa tests/regression.html no Firefox headless e retorna o resultado."""
+"""Executa tests/regression.html em um navegador headless e retorna o resultado."""
+import argparse
 import functools
 import http.server
 import json
@@ -35,8 +36,21 @@ def create_profile():
     return tempfile.mkdtemp(prefix='regression-', dir=snap_area if snap_area.is_dir() else None)
 
 
+def browser_command(browser, profile, url):
+    if browser == 'firefox':
+        return ['firefox', '--headless', '--no-remote', '--profile', profile, url]
+    executable = shutil.which('google-chrome') or shutil.which('chromium') or shutil.which('chromium-browser')
+    if not executable:
+        sys.exit('Chrome não encontrado. Abra tests/regression.html manualmente (veja o README).')
+    return [executable, '--headless=new', '--no-sandbox', '--disable-gpu', f'--user-data-dir={profile}', url]
+
+
 def main():
-    if not shutil.which('firefox'):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--browser', choices=['firefox', 'chrome'], default='firefox')
+    args = parser.parse_args()
+
+    if args.browser == 'firefox' and not shutil.which('firefox'):
         sys.exit('Firefox não encontrado. Abra tests/regression.html manualmente (veja o README).')
 
     handler = functools.partial(Handler, directory=str(ROOT))
@@ -46,7 +60,7 @@ def main():
     profile = create_profile()
     url = f'http://127.0.0.1:{server.server_address[1]}/tests/regression.html'
     browser = subprocess.Popen(
-        ['firefox', '--headless', '--no-remote', '--profile', profile, url],
+        browser_command(args.browser, profile, url),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

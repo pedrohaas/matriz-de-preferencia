@@ -5,7 +5,7 @@
 
 Este projeto tem como objetivo desenvolver uma **ferramenta web interativa** para **análise de decisões multicritério**, guiando o usuário em um processo estruturado para inserir um problema, definir critérios e alternativas, avaliar desempenhos e escolher o melhor método de ponderação. Os resultados finais são exibidos através de um ranking dinâmico com matrizes completas.
 
-**[➡️ Acessar a Demonstração](https://pedrohaas.github.io/matriz-de-preferencia/)**
+**[➡️ Acessar a Demonstração](https://matriz-de-preferencia.vercel.app/)**
 
 ---
 
@@ -87,6 +87,7 @@ matriz-de-preferencia/
 ├── style.css            # Folha de estilos e variáveis do design system
 │
 ├── js/                  # Scripts e lógicas modulares
+│   ├── canonical-site.js   # Redireciona o endereço antigo para o site oficial
 │   ├── main.js             # Inicialização, eventos gerais e state reset
 │   ├── utils.js            # Escape de texto, delegação de eventos e notificações Toast
 │   ├── state.js            # Objeto único com o estado da análise
@@ -101,7 +102,7 @@ matriz-de-preferencia/
 │
 ├── tests/               # Testes de regressão executados em navegador real
 │   ├── regression.html     # Cenários, que dirigem o index.html por um iframe
-│   └── run.py              # Executa os cenários no Firefox headless
+│   └── run.py              # Executa os cenários em navegador headless
 │
 └── libs/                # Dependências locais
     └── html2canvas.min.js
@@ -124,11 +125,14 @@ Como o projeto possui uma arquitetura 100% *client-side* (estática), nenhuma in
 
 ## 🧪 Testes
 
-Os testes de regressão não têm dependências além de Python 3 e Firefox:
+Os testes de regressão não têm dependências além de Python 3 e de um navegador:
 
 ```bash
-python3 tests/run.py
+python3 tests/run.py                   # Firefox
+python3 tests/run.py --browser chrome  # Chrome
 ```
+
+Os dois navegadores também rodam automaticamente em cada pull request, pelo GitHub Actions.
 
 Também é possível vê-los no navegador: rode `python3 -m http.server` na raiz do projeto e abra `http://localhost:8000/tests/regression.html`.
 
