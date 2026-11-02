@@ -357,6 +357,22 @@ function showComparisonForCriterion() {
             }
         }
     }
+
+    // Permite desfazer uma escolha errada antes de concluir o critério
+    // (com o critério concluído, os blocos acima já oferecem este botão)
+    const criterionComplete = alternatives.every(alt => {
+        const score = getScoreForAlternative(criterion, alt);
+        return score !== null && score !== undefined;
+    });
+    if (comparisonData[criterion].best && !criterionComplete) {
+        html += `
+            <div style="margin-top: 10px;">
+                <button class="btn btn-secondary" onclick="resetCurrentCriterion()" title="Refazer os scores deste critério">
+                    ↺ Reiniciar este Critério
+                </button>
+            </div>
+        `;
+    }
     
     interface_.innerHTML = html;
 }
@@ -564,7 +580,7 @@ function getScoreForAlternative(criterion, alternative) {
     if (alternative === comparisonData[criterion].worst) {
         return comparisonData[criterion].worstScore;
     }
-    return comparisonData[criterion].scores?.[alternative] || null;
+    return comparisonData[criterion].scores?.[alternative] ?? null;
 }
 
 function goToCriterion(index) {
@@ -575,6 +591,10 @@ function goToCriterion(index) {
 function resetCriterion(criterion) {
     comparisonData[criterion] = {};
     showComparisonForCriterion();
+}
+
+function resetCurrentCriterion() {
+    resetCriterion(criteria[currentCriterionIndex]);
 }
 
 function nextCriterion() {

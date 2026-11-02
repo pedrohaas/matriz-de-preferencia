@@ -61,7 +61,7 @@ window.nextStep = async function() {
                 console.warn('API_KEY não está definida. Verifique se ai-suggestions.js foi carregado.');
             } else if (API_KEY === "SUA_CHAVE_DE_API_AQUI" || API_KEY === "") {
                 console.warn('API_KEY não foi configurada. Configure sua chave da API do Gemini.');
-            } else {
+            } else if (criteria.length === 0 && aiSuggestionKey !== `${titulo}\n${descricao}`) {
                 try {
                     console.log('Iniciando busca de critérios...');
                     
@@ -80,6 +80,7 @@ window.nextStep = async function() {
                     nextButton.disabled = false;
                     
                     if (criteriosSugeridos && criteriosSugeridos.length > 0) {
+                        aiSuggestionKey = `${titulo}\n${descricao}`;
                         const acceptedCriteria = await showAiModal(criteriosSugeridos);
                         
                         // Avançar para o step2 primeiro
@@ -415,6 +416,57 @@ function calculateResults() {
     displayResults(results, sortedAlternatives);
 }
 
+// Tolerância para arredondamento de ponto flutuante ao comparar pontuações e pesos
+const FLOAT_TOLERANCE = 1e-9;
+
+function isTied(results, altA, altB) {
+    return Math.abs(results[altA] - results[altB]) < FLOAT_TOLERANCE;
+}
+
+// Posições no ranking: alternativas empatadas dividem a posição (1, 1, 3)
+function computeRankPositions(results, sortedAlternatives) {
+    const positions = [];
+    sortedAlternatives.forEach((alt, index) => {
+        const tiedWithPrevious = index > 0 && isTied(results, alt, sortedAlternatives[index - 1]);
+        positions.push(tiedWithPrevious ? positions[index - 1] : index + 1);
+    });
+    return positions;
+}
+
+function renderRankingItems(results, sortedAlternatives) {
+    const positions = computeRankPositions(results, sortedAlternatives);
+    return sortedAlternatives.map((alt, index) => {
+        const tied = positions.filter(position => position === positions[index]).length > 1;
+        return `
+        <li>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div class="ranking-position">${positions[index]}</div>
+                <div style="flex-grow: 1;">
+                    <strong>${alt}</strong>
+                    ${tied ? '<span class="tie-badge">Empate</span>' : ''}
+                </div>
+                <div class="score">${results[alt].toFixed(2)}</div>
+            </div>
+        </li>
+        `;
+    }).join('');
+}
+
+// Alternativa(s) em 1º lugar, deixando claro quando há empate
+function getRecommendationLabel(results, sortedAlternatives) {
+    const top = sortedAlternatives.filter(alt => isTied(results, alt, sortedAlternatives[0]));
+    if (top.length === 1) return top[0];
+    return `${top.slice(0, -1).join(', ')} e ${top[top.length - 1]} (empate)`;
+}
+
+// Nome do método, indicando quando os sliders alteraram os pesos calculados por ele
+function getResultsMethodLabel() {
+    const adjusted = criteria.some(criterion =>
+        Math.abs(weights[criterion] - originalWeights[criterion]) > FLOAT_TOLERANCE
+    );
+    return getWeightingMethodName() + (adjusted ? ' (pesos ajustados manualmente)' : '');
+}
+
 function displayResults(results, sortedAlternatives) {
     const interface_ = document.getElementById('resultsInterface');
 
@@ -424,19 +476,7 @@ function displayResults(results, sortedAlternatives) {
             <ul class="ranking" id="dynamicRanking">
     `;
 
-    sortedAlternatives.forEach((alt, index) => {
-        html += `
-        <li>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="ranking-position">${index + 1}</div>
-                <div style="flex-grow: 1;">
-                    <strong>${alt}</strong>
-                </div>
-                <div class="score" id="score-${alt.replace(/\s+/g, '-')}">${results[alt].toFixed(2)}</div>
-            </div>
-        </li>
-        `;
-    });
+    html += renderRankingItems(results, sortedAlternatives);
 
     html += `
             </ul>
@@ -578,10 +618,10 @@ function displayResults(results, sortedAlternatives) {
                     <span><strong>Alternativas:</strong> ${alternatives.length}</span>
                 </div>
                 <div class="item">
-                    <span><strong>Método de Pesagem:</strong> ${getWeightingMethodName()}</span>
+                    <span><strong>Método de Pesagem:</strong> <span id="resultsMethod">${getResultsMethodLabel()}</span></span>
                 </div>
                 <div class="item">
-                    <span><strong>Alternativa Recomendada:</strong> <span id="topAlternative">${sortedAlternatives[0]}</span></span>
+                    <span><strong>Alternativa Recomendada:</strong> <span id="topAlternative">${getRecommendationLabel(results, sortedAlternatives)}</span></span>
                 </div>
             </div>
         </div>
@@ -620,27 +660,31 @@ function toggleAutoNormalize() {
     updateWeightStatus();
 }
 
+// Define o peso de um critério: com a normalização ativa, o valor informado é
+// mantido e os demais critérios dividem o restante proporcionalmente
+function applyWeightChange(criterion, percent) {
+    const newWeight = Math.min(Math.max(percent, 0), 100) / 100;
+
+    if (autoNormalize) {
+        const others = criteria.filter(c => c !== criterion);
+        const othersTotal = others.reduce((sum, c) => sum + weights[c], 0);
+        const remaining = 1 - newWeight;
+        others.forEach(c => {
+            weights[c] = othersTotal > 0
+                ? weights[c] * (remaining / othersTotal)
+                : remaining / others.length;
+        });
+    }
+    weights[criterion] = newWeight;
+
+    updateWeightDisplays();
+    updateWeightStatus();
+    updateResultsDisplay();
+}
+
 // Função para atualizar pesos dinamicamente
 function updateWeightDynamic(criterion, value) {
-    // Converter valor do slider (0-100) para peso (0-1.0)
-    const newWeight = parseFloat(value) / 100;
-    
-    // Atualizar o peso do critério
-    weights[criterion] = newWeight;
-    
-    // Se normalização automática estiver ativa, normalizar
-    if (autoNormalize) {
-        normalizeWeights();
-    }
-    
-    // Atualizar display dos pesos
-    updateWeightDisplays();
-    
-    // Atualizar status dos pesos
-    updateWeightStatus();
-    
-    // Recalcular e atualizar resultados
-    updateResultsDisplay();
+    applyWeightChange(criterion, parseFloat(value));
 }
 
 // Função para atualizar peso via input numérico
@@ -653,25 +697,7 @@ function updateWeightFromInput(criterion, value) {
         return;
     }
     
-    // Limitar a 100% se não estiver normalizando
-    const finalValue = autoNormalize ? numValue : Math.min(numValue, 100);
-    
-    // Atualizar peso
-    weights[criterion] = finalValue / 100;
-    
-    // Se normalização automática estiver ativa, normalizar
-    if (autoNormalize) {
-        normalizeWeights();
-    }
-    
-    // Atualizar display dos pesos
-    updateWeightDisplays();
-    
-    // Atualizar status dos pesos
-    updateWeightStatus();
-    
-    // Recalcular e atualizar resultados
-    updateResultsDisplay();
+    applyWeightChange(criterion, numValue);
 }
 
 // Normalizar pesos para somarem 1
@@ -781,7 +807,10 @@ function updateResultsDisplay() {
     
     // Atualizar alternativa recomendada
     const topAltElement = document.getElementById('topAlternative');
-    if (topAltElement) topAltElement.textContent = sortedAlternatives[0];
+    if (topAltElement) topAltElement.textContent = getRecommendationLabel(results, sortedAlternatives);
+
+    const methodElement = document.getElementById('resultsMethod');
+    if (methodElement) methodElement.textContent = getResultsMethodLabel();
     
     // Atualizar dados para exportação
     lastResultsData.pesos = { ...weights };
@@ -794,22 +823,7 @@ function updateRankingDisplay(results, sortedAlternatives) {
     const rankingElement = document.getElementById('dynamicRanking');
     if (!rankingElement) return;
 
-    let html = '';
-    sortedAlternatives.forEach((alt, index) => {
-        html += `
-        <li>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div class="ranking-position">${index + 1}</div>
-                <div style="flex-grow: 1;">
-                    <strong>${alt}</strong>
-                </div>
-                <div class="score">${results[alt].toFixed(2)}</div>
-            </div>
-        </li>
-        `;
-    });
-    
-    rankingElement.innerHTML = html;
+    rankingElement.innerHTML = renderRankingItems(results, sortedAlternatives);
 }
 
 // Atualizar display da matriz
@@ -877,7 +891,6 @@ function getWeightingMethodName() {
 
     const method = select.value;
     const names = {
-        adhoc: 'Ad-hoc',
         ranksum: 'Rank-Sum',
         swingweighting: 'Swing (Swing Weighting)',
     };

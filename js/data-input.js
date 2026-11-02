@@ -34,6 +34,7 @@ function removeCriterion(index) {
     if (scores && scores[removed]) {
         delete scores[removed];
     }
+    forgetCriterionInputs(removed);
     
     updateCriteriaList();
     scheduleAutoSave();
@@ -95,6 +96,8 @@ function editCriterion(index) {
             scores[newName] = scores[oldName];
             delete scores[oldName];
         }
+
+        renameCriterionInputs(oldName, newName);
         
         updateCriteriaList();
         showSuccess('Critério renomeado com sucesso!');

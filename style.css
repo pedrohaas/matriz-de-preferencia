@@ -871,6 +871,18 @@ textarea:focus {
     font-size: 1.1rem;
 }
 
+/* Indicador de alternativas empatadas no ranking */
+.tie-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 20px;
+    background: var(--warning-bg);
+    color: var(--warning);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
 /* ---- MATRIX TABLE ---- */
 .matrix-table {
     width: 100%;

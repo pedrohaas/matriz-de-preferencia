@@ -73,78 +73,98 @@ function setupWeightingInterface() {
     }
     
     interface_.innerHTML = html;
+    restoreWeightingInputs(method);
+}
+
+// Recoloca nos formulários o que o usuário já havia preenchido
+function restoreWeightingInputs(method) {
+    if (method === 'ranksum') {
+        criteria.forEach((criterion, index) => {
+            const select = document.getElementById(`ranksum_${index}`);
+            select.value = weightingInputs.ranks[criterion] ?? '';
+            // Posição que não existe mais (lista de critérios encolheu) fica em branco
+            if (select.selectedIndex === -1) select.value = '';
+        });
+        return;
+    }
+
+    if (method === 'swingweighting') {
+        criteria.forEach((criterion, index) => {
+            document.getElementById(`worstValue_${index}`).value = weightingInputs.worst[criterion] ?? '';
+        });
+        validateWorstAlternative();
+
+        const mostImportantIndex = criteria.indexOf(weightingInputs.mostImportant);
+        if (mostImportantIndex === -1 || !isWorstAlternativeComplete()) return;
+
+        const savedSwing = { ...weightingInputs.swing };
+        document.getElementById('mostImportant').value = mostImportantIndex;
+        updateSwingWeightingInterface();
+        criteria.forEach((criterion, index) => {
+            const input = document.getElementById(`swingweight_${index}`);
+            if (input) input.value = savedSwing[criterion] ?? '';
+        });
+        updateSwingWeightingWeights();
+    }
+}
+
+function forgetCriterionInputs(criterion) {
+    delete weightingInputs.ranks[criterion];
+    delete weightingInputs.worst[criterion];
+    delete weightingInputs.swing[criterion];
+    if (weightingInputs.mostImportant === criterion) {
+        weightingInputs.mostImportant = null;
+        weightingInputs.swing = {};
+    }
+}
+
+function renameCriterionInputs(oldName, newName) {
+    ['ranks', 'worst', 'swing'].forEach(group => {
+        if (weightingInputs[group][oldName] !== undefined) {
+            weightingInputs[group][newName] = weightingInputs[group][oldName];
+            delete weightingInputs[group][oldName];
+        }
+    });
+    if (weightingInputs.mostImportant === oldName) {
+        weightingInputs.mostImportant = newName;
+    }
 }
 
 // Funções de atualização de pesos
 
-function updateRankSumWeights() {
-    const ranks = {};
-    let valid = true;
-    
-    criteria.forEach((_, index) => {
-        const rank = document.getElementById(`ranksum_${index}`).value;
-        if (!rank) {
-            valid = false;
-            return;
-        }
-        ranks[index] = parseInt(rank);
-    });
-    
-    if (!valid) return;
-    
-    // Verificar se todos os ranks são únicos
-    const rankValues = Object.values(ranks);
-    if (new Set(rankValues).size !== rankValues.length) {
-        showError('Cada critério deve ter uma posição única.');
-        return;
+// Calcula os pesos Rank-Sum a partir do formulário: wi = (n - ri + 1) / Σ(n - rj + 1)
+function computeRankSumWeights() {
+    const ranks = criteria.map((_, index) => parseInt(document.getElementById(`ranksum_${index}`).value));
+
+    if (ranks.some(isNaN)) {
+        return { ok: false, error: 'Defina a posição de todos os critérios no Rank-Sum.' };
     }
-    
-    // Calcular pesos usando Rank-Sum: wi = (n - ri + 1) / Σ(n - rj + 1)
+    if (new Set(ranks).size !== ranks.length) {
+        return { ok: false, duplicate: true, error: 'Cada critério deve ter uma posição única.' };
+    }
+
     const n = criteria.length;
-    let denominator = 0;
-    for (let i = 1; i <= n; i++) {
-        denominator += (n - i + 1);
-    }
-    
+    const denominator = n * (n + 1) / 2;
+    const rankSumWeights = {};
     criteria.forEach((criterion, index) => {
-        const rank = ranks[index];
-        weights[criterion] = (n - rank + 1) / denominator;
+        rankSumWeights[criterion] = (n - ranks[index] + 1) / denominator;
     });
+    return { ok: true, weights: rankSumWeights };
 }
 
-function updateROCWeights() {
-    const ranks = {};
-    let valid = true;
-    
-    criteria.forEach((_, index) => {
-        const rank = document.getElementById(`roc_${index}`).value;
-        if (!rank) {
-            valid = false;
-            return;
-        }
-        ranks[index] = parseInt(rank);
-    });
-    
-    if (!valid) return;
-    
-    // Verificar se todos os ranks são únicos
-    const rankValues = Object.values(ranks);
-    if (new Set(rankValues).size !== rankValues.length) {
-        showError('Cada critério deve ter uma posição única.');
-        return;
-    }
-    
-    // Calcular pesos usando ROC: wi = (1/n) * Σ(1/j) para j = ri até n
-    const n = criteria.length;
-    
+function updateRankSumWeights() {
+    weightingInputs.ranks = {};
     criteria.forEach((criterion, index) => {
-        const rank = ranks[index];
-        let sum = 0;
-        for (let j = rank; j <= n; j++) {
-            sum += 1 / j;
-        }
-        weights[criterion] = sum / n;
+        const rank = document.getElementById(`ranksum_${index}`).value;
+        if (rank) weightingInputs.ranks[criterion] = rank;
     });
+
+    const result = computeRankSumWeights();
+    if (result.ok) {
+        weights = result.weights;
+    } else if (result.duplicate) {
+        showError(result.error);
+    }
 }
 
 function updateSwingWeights() {
@@ -221,6 +241,8 @@ function initializeSwingWeighting() {
 function updateSwingWeightingInterface() {
     const mostImportantIndex = parseInt(document.getElementById('mostImportant').value);
     if (isNaN(mostImportantIndex)) {
+        weightingInputs.mostImportant = null;
+        weightingInputs.swing = {};
         document.getElementById('swingWeightingComparisons').innerHTML = '';
         document.getElementById('swingWeightingSummary').innerHTML = '';
         return;
@@ -234,6 +256,13 @@ function updateSwingWeightingInterface() {
     }
     
     const mostImportantCriterion = criteria[mostImportantIndex];
+
+    // Os valores são relativos ao critério mais importante: trocá-lo invalida os anteriores
+    if (weightingInputs.mostImportant !== mostImportantCriterion) {
+        weightingInputs.mostImportant = mostImportantCriterion;
+        weightingInputs.swing = {};
+    }
+
     let html = `
         <div style="margin: 15px 0;">
             <h4>Comparações de Impacto (Passos 3-4)</h4>
@@ -442,6 +471,11 @@ function validateWorstAlternative() {
     
     criteria.forEach((criterion, index) => {
         const input = document.getElementById(`worstValue_${index}`);
+        if (input && input.value.trim() !== '') {
+            weightingInputs.worst[criterion] = input.value;
+        } else {
+            delete weightingInputs.worst[criterion];
+        }
         if (!input || input.value.trim() === '' || isNaN(parseFloat(input.value))) {
             allComplete = false;
         }
@@ -511,6 +545,14 @@ function updateSwingWeightingWeights() {
     const mostImportantIndex = parseInt(document.getElementById('mostImportant').value);
     if (isNaN(mostImportantIndex)) return;
     
+    weightingInputs.swing = {};
+    criteria.forEach((criterion, index) => {
+        const input = document.getElementById(`swingweight_${index}`);
+        if (input && input.value.trim() !== '') {
+            weightingInputs.swing[criterion] = input.value;
+        }
+    });
+
     const mostImportantCriterion = criteria[mostImportantIndex];
     const rawWeights = {};
     let totalRawWeight = 0;
@@ -546,6 +588,7 @@ function updateSwingWeightingWeights() {
     }
     
     // Normalizar os pesos (Passo 5 do método)
+    weights = {};
     criteria.forEach(criterion => {
         weights[criterion] = rawWeights[criterion] / totalRawWeight;
     });
@@ -588,20 +631,18 @@ function updateSwingWeightingSummary(rawWeights, totalRawWeight) {
 function validateWeights() {
     const method = document.getElementById('weightingMethod').value;
     
-    // Limpar chaves órfãs de critérios que já foram removidos
-    Object.keys(weights).forEach(key => {
-        if (!criteria.includes(key)) {
-            delete weights[key];
-        }
-    });
-    
-    if (Object.keys(weights).length !== criteria.length) {
-        showError('Complete todas as avaliações de peso dos critérios.');
-        return false;
-    }
-    
-    // Validações específicas por método
+    // Os pesos são sempre recalculados a partir do formulário do método selecionado,
+    // descartando valores de outro método, de critérios removidos ou dos sliders
     switch(method) {
+        case 'ranksum': {
+            const result = computeRankSumWeights();
+            if (!result.ok) {
+                showError(result.error);
+                return false;
+            }
+            weights = result.weights;
+            break;
+        }
 
         case 'swingweighting':
             // Verificar se a alternativa hipotética foi completamente definida
@@ -644,7 +685,12 @@ function validateWeights() {
                 showError('Defina pelo menos um peso maior que zero para os outros critérios no Swing Weighting (Passo 4).');
                 return false;
             }
-            break;    
+
+            updateSwingWeightingWeights();
+            break;
+
+        default:
+            return false;
     }
     
     return true;

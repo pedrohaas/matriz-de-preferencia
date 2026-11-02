@@ -72,6 +72,18 @@ function getApiKey() {
     return null;
 }
 
+// Extrai os critérios do texto da IA, sem marcadores de lista nem formatação Markdown
+function parseCriteriaSuggestions(text) {
+    return text
+        .split(/[,\n]/)
+        .map(s => s
+            .trim()
+            .replace(/^(?:[-*+•]+\s+|\d+[.)]\s*)/, '')
+            .replace(/[*`]/g, '')
+            .trim())
+        .filter(s => s.length > 0);
+}
+
 async function sugerirCritériosGemini(titulo, descricao) {
     console.log('Iniciando sugestão de critérios...');
     console.log('Título:', titulo);
@@ -137,12 +149,7 @@ Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de imple
         console.log('Texto recebido:', text);
         
         // Processar o texto para extrair os critérios
-        const criterios = text
-            .split(/[,\n]/) // Dividir por vírgula ou quebra de linha
-            .map(s => s.trim()) // Remover espaços
-            .filter(s => s.length > 0) // Remover strings vazias
-            .map(s => s.replace(/^[\d\.\-\*\+]\s*/, '')) // Remover numeração/bullet points
-            .filter(s => s.length > 0); // Filtrar novamente após limpeza
+        const criterios = parseCriteriaSuggestions(text);
         
         console.log('Critérios processados:', criterios);
         
