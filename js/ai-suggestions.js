@@ -1,6 +1,5 @@
 function salvarChaveAPI() {
     const apiKey = document.getElementById('apiKey').value.trim();
-    const statusDiv = document.getElementById('apiStatus');
     
     if (!apiKey) {
         atualizarStatusAPI('error', '❌ Por favor, insira uma chave da API');
@@ -15,11 +14,6 @@ function salvarChaveAPI() {
     
     // Salvar no localStorage
     localStorage.setItem('gemini_api_key', apiKey);
-    
-    // Atualizar a variável global no arquivo ai-suggestions.js
-    if (typeof window.API_KEY !== 'undefined') {
-        window.API_KEY = apiKey;
-    }
     
     atualizarStatusAPI('success', '✅ Chave da API salva com sucesso');
     
@@ -48,28 +42,13 @@ function atualizarStatusAPI(tipo, mensagem) {
 document.addEventListener('DOMContentLoaded', function() {
     const savedKey = localStorage.getItem('gemini_api_key');
     if (savedKey) {
-        // Atualizar a variável global
-        if (typeof window.API_KEY !== 'undefined') {
-            window.API_KEY = savedKey;
-        }
         atualizarStatusAPI('success', '✅ Chave da API carregada e configurada');
     }
 });
 
 // Função para obter a chave da API
 function getApiKey() {
-    // Primeiro tenta pegar do localStorage
-    const savedKey = localStorage.getItem('gemini_api_key');
-    if (savedKey) {
-        return savedKey;
-    }
-    
-    // Se não encontrar, usa a variável global (para compatibilidade)
-    if (typeof window.API_KEY !== 'undefined' && window.API_KEY !== "SUA_CHAVE_DE_API_AQUI") {
-        return window.API_KEY;
-    }
-    
-    return null;
+    return localStorage.getItem('gemini_api_key');
 }
 
 async function sugerirCritériosGemini(titulo, descricao) {
@@ -137,12 +116,7 @@ Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de imple
         console.log('Texto recebido:', text);
         
         // Processar o texto para extrair os critérios
-        const criterios = text
-            .split(/[,\n]/) // Dividir por vírgula ou quebra de linha
-            .map(s => s.trim()) // Remover espaços
-            .filter(s => s.length > 0) // Remover strings vazias
-            .map(s => s.replace(/^[\d\.\-\*\+]\s*/, '')) // Remover numeração/bullet points
-            .filter(s => s.length > 0); // Filtrar novamente após limpeza
+        const criterios = parseCriteriaSuggestions(text);
         
         console.log('Critérios processados:', criterios);
         
@@ -169,22 +143,3 @@ Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de imple
         return [];
     }
 }
-
-// Função para testar a configuração da API
-window.testarAPI = async function() {
-    console.log('Testando configuração da API...');
-    
-    if (API_KEY === "SUA_CHAVE_DE_API_AQUI" || API_KEY === "") {
-        alert("Configure sua chave da API do Gemini no arquivo ai-suggestions.js");
-        return;
-    }
-    
-    try {
-        const resultado = await sugerirCritériosGemini("Teste", "Problema de teste");
-        console.log('Teste concluído com sucesso:', resultado);
-        alert("API configurada corretamente! Critérios de teste: " + resultado.join(", "));
-    } catch (error) {
-        console.error('Erro no teste:', error);
-        alert("Erro na configuração da API: " + error.message);
-    }
-};

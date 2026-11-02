@@ -1,104 +1,75 @@
-// Configuração da interface de comparação
+// Passo de scores: assistente de âncoras e posicionamento das alternativas
+
+function currentCriterionId() {
+    return state.criteria[state.currentCriterionIndex].id;
+}
+
+function currentEntry() {
+    return state.comparisonData[currentCriterionId()];
+}
+
 function setupComparisonInterface() {
-    currentCriterionIndex = 0;
-    
-    // Preservar dados existentes — só inicializar critérios novos
-    if (!comparisonData || typeof comparisonData !== 'object') {
-        comparisonData = {};
-    }
-    
-    // Limpar critérios que foram removidos
-    Object.keys(comparisonData).forEach(key => {
-        if (!criteria.includes(key)) {
-            delete comparisonData[key];
+    state.currentCriterionIndex = 0;
+
+    // Critérios novos começam vazios; os existentes preservam os dados
+    state.criteria.forEach(criterion => {
+        if (!state.comparisonData[criterion.id]) {
+            state.comparisonData[criterion.id] = {};
         }
     });
-    
-    // Limpar alternativas removidas dos dados de cada critério
-    Object.keys(comparisonData).forEach(key => {
-        const cd = comparisonData[key];
-        if (cd.best && !alternatives.includes(cd.best)) {
-            // Best foi removido — resetar este critério
-            comparisonData[key] = {};
-            return;
-        }
-        if (cd.worst && !alternatives.includes(cd.worst)) {
-            // Worst foi removido — resetar este critério
-            comparisonData[key] = {};
-            return;
-        }
-        if (cd.scores) {
-            Object.keys(cd.scores).forEach(alt => {
-                if (!alternatives.includes(alt)) {
-                    delete cd.scores[alt];
-                }
-            });
-        }
-    });
-    
-    // Inicializar apenas critérios novos
-    criteria.forEach(criterion => {
-        if (!comparisonData[criterion]) {
-            comparisonData[criterion] = {};
-        }
-    });
-    
+
     showComparisonForCriterion();
 }
 
-function showComparisonForCriterion() {
-    const interface_ = document.getElementById('comparisonInterface');
-    const criterion = criteria[currentCriterionIndex];
-    
-    // --- Painel de navegação entre critérios ---
-    let navHtml = `<div class="criterion-nav" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1.25rem;">`;
-    criteria.forEach((c, i) => {
-        const done = comparisonData[c] &&
-            comparisonData[c].best &&
-            comparisonData[c].worst &&
-            comparisonData[c].bestScore !== undefined &&
-            comparisonData[c].worstScore !== undefined &&
-            alternatives.every(a => getScoreForAlternative(c, a) !== null && getScoreForAlternative(c, a) !== undefined);
-        const isCurrent = i === currentCriterionIndex;
-        const btnStyle = isCurrent
-            ? `background:var(--primary);color:#fff;border:2px solid var(--primary);`
-            : done
-                ? `background:var(--success, #22c55e);color:#fff;border:2px solid var(--success, #22c55e);`
-                : `background:var(--bg);color:var(--text-dark);border:2px solid var(--border);`;
-        navHtml += `<button onclick="goToCriterion(${i})" style="${btnStyle} padding:5px 12px; border-radius:20px; font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;" title="${c}">${i+1}. ${c.length > 15 ? c.slice(0,13)+'…' : c}${done && !isCurrent ? ' ✓' : ''}</button>`;
-    });
-    navHtml += `</div>`;
+function isComplete(criterionId) {
+    return isCriterionComplete(state.comparisonData[criterionId], alternativeIds());
+}
 
-    // --- Painel de gerenciamento (remover critérios/alternativas) ---
-    navHtml += `
+function renderCriterionNav() {
+    const buttons = state.criteria.map((criterion, index) => {
+        const done = isComplete(criterion.id);
+        const isCurrent = index === state.currentCriterionIndex;
+        const buttonStyle = isCurrent
+            ? 'background:var(--primary);color:#fff;border:2px solid var(--primary);'
+            : done
+                ? 'background:var(--success, #22c55e);color:#fff;border:2px solid var(--success, #22c55e);'
+                : 'background:var(--bg);color:var(--text-dark);border:2px solid var(--border);';
+        const label = criterion.name.length > 15 ? `${criterion.name.slice(0, 13)}…` : criterion.name;
+
+        return `<button data-action="goToCriterion" data-id="${criterion.id}" style="${buttonStyle} padding:5px 12px; border-radius:20px; font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;" title="${escapeHtml(criterion.name)}">${index + 1}. ${escapeHtml(label)}${done && !isCurrent ? ' ✓' : ''}</button>`;
+    }).join('');
+
+    return `<div class="criterion-nav" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1.25rem;">${buttons}</div>`;
+}
+
+function renderManagementColumn(title, items, removeAction, borderColor) {
+    const rows = items.map((item, index) => `
+        <div style="display:flex; align-items:center; justify-content:space-between; background:white; padding:8px 10px; border-radius:6px; border-left:3px solid var(${borderColor}); font-size:0.88rem;">
+            <span>${index + 1}. ${escapeHtml(item.name)}</span>
+            ${items.length > 2
+                ? `<button class="remove-btn" data-action="${removeAction}" data-id="${item.id}" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>`
+                : '<span style="font-size:0.72rem; color:var(--text-soft);">mín.</span>'}
+        </div>
+    `).join('');
+
+    return `
+        <div>
+            <h4 style="color:var(--primary); margin-bottom:8px; font-size:0.95rem;">${title} (${items.length})</h4>
+            <div style="display:flex; flex-direction:column; gap:6px;">${rows}</div>
+        </div>
+    `;
+}
+
+function renderManagementPanel() {
+    return `
         <div class="management-panel" style="margin-bottom:1.25rem;">
-            <button onclick="toggleManagementPanel()" class="btn btn-secondary btn-small" style="font-size:0.82rem; padding:6px 14px;">
+            <button data-action="toggleManagementPanel" class="btn btn-secondary btn-small" style="font-size:0.82rem; padding:6px 14px;">
                 ⚙️ Gerenciar Critérios e Alternativas
             </button>
             <div id="managementPanelContent" style="display:none; margin-top:12px; padding:16px; background:var(--white); border:2px solid var(--border); border-radius:var(--radius-md);">
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-                    <div>
-                        <h4 style="color:var(--primary); margin-bottom:8px; font-size:0.95rem;">📋 Critérios (${criteria.length})</h4>
-                        <div style="display:flex; flex-direction:column; gap:6px;">
-                            ${criteria.map((c, i) => `
-                                <div style="display:flex; align-items:center; justify-content:space-between; background:white; padding:8px 10px; border-radius:6px; border-left:3px solid var(--secondary); font-size:0.88rem;">
-                                    <span>${i+1}. ${c}</span>
-                                    ${criteria.length > 2 ? `<button class="remove-btn" onclick="removeCriterionFromStep3(${i})" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>` : '<span style="font-size:0.72rem; color:var(--text-soft);">mín.</span>'}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                    <div>
-                        <h4 style="color:var(--primary); margin-bottom:8px; font-size:0.95rem;">🏷️ Alternativas (${alternatives.length})</h4>
-                        <div style="display:flex; flex-direction:column; gap:6px;">
-                            ${alternatives.map((a, i) => `
-                                <div style="display:flex; align-items:center; justify-content:space-between; background:white; padding:8px 10px; border-radius:6px; border-left:3px solid var(--primary); font-size:0.88rem;">
-                                    <span>${i+1}. ${a}</span>
-                                    ${alternatives.length > 2 ? `<button class="remove-btn" onclick="removeAlternativeFromStep3(${i})" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>` : '<span style="font-size:0.72rem; color:var(--text-soft);">mín.</span>'}
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
+                    ${renderManagementColumn('📋 Critérios', state.criteria, 'removeCriterionFromStep3', '--secondary')}
+                    ${renderManagementColumn('🏷️ Alternativas', state.alternatives, 'removeAlternativeFromStep3', '--primary')}
                 </div>
                 <p style="margin-top:10px; font-size:0.78rem; color:var(--text-soft); font-style:italic;">
                     ⚠️ Ao remover um critério ou alternativa, os scores associados serão recalculados. Mínimo: 2 critérios e 2 alternativas.
@@ -106,565 +77,375 @@ function showComparisonForCriterion() {
             </div>
         </div>
     `;
+}
 
-    let html = navHtml + `
-        <div class="comparison-question">
-            <div class="question-text">
-                Critério: ${criterion} (${currentCriterionIndex + 1} de ${criteria.length})
+function renderAlternativeCards(action, excludedId = null) {
+    const cards = state.alternatives
+        .filter(alternative => alternative.id !== excludedId)
+        .map(alternative => `
+            <div class="alternative-card" data-action="${action}" data-id="${alternative.id}">
+                ${escapeHtml(alternative.name)}
             </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: ${(currentCriterionIndex / criteria.length) * 100}%"></div>
+        `).join('');
+    return `<div class="alternatives-grid">${cards}</div>`;
+}
+
+function renderSelectBest(criterionName_) {
+    return `
+        <div style="margin: 20px 0;">
+            <h4>1. Qual alternativa é a MELHOR para o critério "${criterionName_}"?</h4>
+            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">Selecione a alternativa com melhor desempenho neste critério.</p>
+            ${renderAlternativeCards('selectBest')}
+        </div>
+    `;
+}
+
+function renderBestScoreInput(entry) {
+    const best = escapeHtml(alternativeName(entry.best));
+    return `
+        <div style="margin: 20px 0;">
+            <div class="success-message">✅ Melhor alternativa selecionada: <strong>${best}</strong></div>
+            <h4>2. Defina o score da melhor alternativa — Âncora Superior:</h4>
+            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">
+                Atribua um score máximo (entre 0 e 10) para <strong>${best}</strong>, que representa o melhor desempenho neste critério.
+            </p>
+            <div class="form-group">
+                <label>Score para "${best}" (0 a 10):</label>
+                <input type="number" id="bestScore" min="0" max="10" placeholder="Ex: 10" step="0.1">
+                <button class="btn btn-primary" style="margin-top: 8px;" data-action="setBestScore">Confirmar</button>
             </div>
         </div>
     `;
-    
-    // Passo 1: Escolher melhor alternativa e já pedir seu score
-    if (!comparisonData[criterion].best) {
-        html += `
-            <div style="margin: 20px 0;">
-                <h4>1. Qual alternativa é a MELHOR para o critério "${criterion}"?</h4>
-                <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">Selecione a alternativa com melhor desempenho neste critério.</p>
-                <div class="alternatives-grid">
-        `;
-        alternatives.forEach((alt, index) => {
-            html += `
-                <div class="alternative-card" onclick="selectBest('${criterion}', '${alt}', ${index})">
-                    ${alt}
+}
+
+function renderSelectWorst(entry, criterionName_) {
+    return `
+        <div style="margin: 20px 0;">
+            <div class="success-message">✅ Melhor: ${escapeHtml(alternativeName(entry.best))} → Score ${entry.bestScore}</div>
+            <h4>3. Qual alternativa é a PIOR para o critério "${criterionName_}"?</h4>
+            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">Selecione a alternativa com pior desempenho neste critério.</p>
+            ${renderAlternativeCards('selectWorst', entry.best)}
+        </div>
+    `;
+}
+
+function renderWorstScoreInput(entry) {
+    const worst = escapeHtml(alternativeName(entry.worst));
+    return `
+        <div style="margin: 20px 0;">
+            <div class="success-message">✅ Melhor: ${escapeHtml(alternativeName(entry.best))} → Score ${entry.bestScore}</div>
+            <div class="success-message">✅ Pior alternativa selecionada: <strong>${worst}</strong></div>
+            <h4>4. Defina o score da pior alternativa — Âncora Inferior:</h4>
+            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">
+                Atribua um score mínimo (entre 0 e ${entry.bestScore}) para <strong>${worst}</strong>.
+            </p>
+            <div class="form-group">
+                <label>Score para "${worst}" (0 a ${entry.bestScore}):</label>
+                <input type="number" id="worstScore" min="0" max="${entry.bestScore}" placeholder="Ex: 0" step="0.1">
+                <button class="btn btn-primary" style="margin-top: 8px;" data-action="setWorstScore">Confirmar</button>
+            </div>
+        </div>
+    `;
+}
+
+function renderPositionScoreInput(entry) {
+    const position = entry.selectedPosition;
+    const minScore = getScore(entry, position.lower);
+    const maxScore = getScore(entry, position.higher);
+    const averageScore = Math.round((minScore + maxScore) / 2 * 10) / 10;
+    const alternative = escapeHtml(alternativeName(position.alternative));
+
+    return `
+        <div style="margin: 20px 0;">
+            <div class="success-message">✅ Posição selecionada: Entre "${escapeHtml(alternativeName(position.higher))}" e "${escapeHtml(alternativeName(position.lower))}"</div>
+            <h4>Defina o score para "${alternative}":</h4>
+            <div class="form-group">
+                <label>Score para "${alternative}" (${minScore} - ${maxScore}):</label>
+                <input type="number" id="positionScore" min="${minScore}" max="${maxScore}" placeholder="Ex: ${averageScore}" step="0.1" value="${averageScore}">
+                <button class="btn btn-primary" data-action="setPositionBetweenScore">Definir Score</button>
+            </div>
+        </div>
+    `;
+}
+
+// Alternativas com score definido, da maior para a menor nota
+function getRankedAlternatives(entry) {
+    return state.alternatives
+        .map(alternative => ({ id: alternative.id, name: alternative.name, score: getScore(entry, alternative.id) }))
+        .filter(item => item.score !== null)
+        .sort((a, b) => b.score - a.score);
+}
+
+function renderRankingRows(ranked, itemClass) {
+    return ranked.map((item, index) => `
+        <div class="${itemClass}">
+            <span class="rank">${index + 1}º</span>
+            <span class="alt-name">${escapeHtml(item.name)}</span>
+            <span class="alt-score">${item.score}</span>
+        </div>
+    `).join('');
+}
+
+function renderPositionOptions(alternativeId, ranked) {
+    let options = '';
+
+    // Entre duas alternativas consecutivas com notas diferentes
+    for (let i = 0; i < ranked.length - 1; i++) {
+        const higher = ranked[i];
+        const lower = ranked[i + 1];
+        if (higher.score !== lower.score) {
+            options += `
+                <div class="alternative-card" data-action="selectPositionBetween" data-alternative="${alternativeId}" data-higher="${higher.id}" data-lower="${lower.id}">
+                    <div class="position-label">📊 Entre "${escapeHtml(higher.name)}" e "${escapeHtml(lower.name)}" </div>
+                    <div class="position-description">Range: ${lower.score} - ${higher.score}</div>
                 </div>
             `;
-        });
-        html += `
-                </div>
-            </div>
-        `;
-    }
-    // Passo 2: Definir score da melhor (âncora superior) — logo após selecionar
-    else if (comparisonData[criterion].bestScore === null || comparisonData[criterion].bestScore === undefined) {
-        html += `
-            <div style="margin: 20px 0;">
-                <div class="success-message">✅ Melhor alternativa selecionada: <strong>${comparisonData[criterion].best}</strong></div>
-                <h4>2. Defina o score da melhor alternativa — Âncora Superior:</h4>
-                <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">
-                    Atribua um score máximo (entre 0 e 10) para <strong>${comparisonData[criterion].best}</strong>, que representa o melhor desempenho neste critério.
-                </p>
-                <div class="form-group">
-                    <label>Score para "${comparisonData[criterion].best}" (0 a 10):</label>
-                    <input type="number" id="bestScore" min="0" max="10" placeholder="Ex: 10" step="0.1">
-                    <button class="btn btn-primary" style="margin-top: 8px;" onclick="setBestScore('${criterion}')">Confirmar</button>
-                </div>
-            </div>
-        `;
-    }
-    // Passo 3: Escolher pior alternativa
-    else if (!comparisonData[criterion].worst) {
-        html += `
-            <div style="margin: 20px 0;">
-                <div class="success-message">✅ Melhor: ${comparisonData[criterion].best} → Score ${comparisonData[criterion].bestScore}</div>
-                <h4>3. Qual alternativa é a PIOR para o critério "${criterion}"?</h4>
-                <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">Selecione a alternativa com pior desempenho neste critério.</p>
-                <div class="alternatives-grid">
-        `;
-        alternatives.forEach((alt, index) => {
-            if (alt !== comparisonData[criterion].best) {
-                html += `
-                    <div class="alternative-card" onclick="selectWorst('${criterion}', '${alt}', ${index})">
-                        ${alt}
-                    </div>
-                `;
-            }
-        });
-        html += `
-                </div>
-            </div>
-        `;
-    }
-    // Passo 4: Definir score da pior — logo após selecionar
-    else if (comparisonData[criterion].worstScore === null || comparisonData[criterion].worstScore === undefined) {
-        html += `
-            <div style="margin: 20px 0;">
-                <div class="success-message">✅ Melhor: ${comparisonData[criterion].best} → Score ${comparisonData[criterion].bestScore}</div>
-                <div class="success-message">✅ Pior alternativa selecionada: <strong>${comparisonData[criterion].worst}</strong></div>
-                <h4>4. Defina o score da pior alternativa — Âncora Inferior:</h4>
-                <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">
-                    Atribua um score mínimo (entre 0 e ${comparisonData[criterion].bestScore}) para <strong>${comparisonData[criterion].worst}</strong>.
-                </p>
-                <div class="form-group">
-                    <label>Score para "${comparisonData[criterion].worst}" (0 a ${comparisonData[criterion].bestScore}):</label>
-                    <input type="number" id="worstScore" min="0" max="${comparisonData[criterion].bestScore}" placeholder="Ex: 0" step="0.1">
-                    <button class="btn btn-primary" style="margin-top: 8px;" onclick="setWorstScore('${criterion}')">Confirmar</button>
-                </div>
-            </div>
-        `;
-    }
-    // Passo 5: Avaliar alternativas restantes com comparação sequencial visual
-    else {
-        // Verificar se há uma posição selecionada esperando input de score
-        if (comparisonData[criterion].selectedPosition) {
-            const position = comparisonData[criterion].selectedPosition;
-            const avgScore = Math.round((position.minScore + position.maxScore) / 2 * 10) / 10;
-            
-            html += `
-                <div style="margin: 20px 0;">
-                    <div class="success-message">✅ Posição selecionada: Entre "${position.higherAlt}" e "${position.lowerAlt}"</div>
-                    <h4>Defina o score para "${position.alternative}":</h4>
-                    <div class="form-group">
-                        <label>Score para "${position.alternative}" (${position.minScore} - ${position.maxScore}):</label>
-                        <input type="number" 
-                               id="positionScore" 
-                               min="${position.minScore}" 
-                               max="${position.maxScore}" 
-                               placeholder="Ex: ${avgScore}" 
-                               step="0.1"
-                               value="${avgScore}">
-                        <button class="btn btn-primary" onclick="setPositionBetweenScore('${criterion}')">Definir Score</button>
-                    </div>
-                </div>
-            `;
-        } else {
-            const remaining = alternatives.filter(alt => {
-                const score = getScoreForAlternative(criterion, alt);
-                return score === null || score === undefined;
-            });
-            
-            if (remaining.length > 0) {
-                const currentAlt = remaining[0];
-                
-                // Obter alternativas já avaliadas e ordenar por score
-                const evaluated = getEvaluatedAlternatives(criterion);
-                
-                html += `
-                    <div style="margin: 20px 0;">
-                        <div class="ranking-display">
-                            <h4>🏆 Ranking atual para "${criterion}"</h4>
-                            ${evaluated.map((item, index) => `
-                                <div class="ranking-item">
-                                    <span class="rank">${index + 1}º</span>
-                                    <span class="alt-name">${item.name}</span>
-                                    <span class="alt-score">${item.score}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                        
-                        <h4>📍 Onde posicionar "${currentAlt}"?</h4>
-                        <p>Escolha a posição mais adequada comparando com as alternativas já avaliadas:</p>
-                        
-                        <div class="position-options">
-                            ${generatePositionOptions(criterion, currentAlt, evaluated)}
-                        </div>
-                    </div>
-                `;
-            } else {
-                // Todos os scores foram definidos para este critério
-                const isLastCriterion = currentCriterionIndex >= criteria.length - 1;
-                html += `
-                    <div style="margin: 20px 0;">
-                        <div class="success-message">✅ Avaliação completa para "${criterion}"!</div>
-                        <div class="final-ranking">
-                            <h4>🏆 Ranking final para "${criterion}"</h4>
-                `;
-
-                const finalRanking = getFinalRanking(criterion);
-                finalRanking.forEach((item, index) => {
-                    html += `
-                        <div class="ranking-item final">
-                            <span class="rank">${index + 1}º</span>
-                            <span class="alt-name">${item.name}</span>
-                            <span class="alt-score">${item.score}</span>
-                        </div>
-                    `;
-                });
-
-                // Verificar se TODOS os critérios foram concluídos (não só o atual)
-                const allDone = criteria.every(c => {
-                    if (!comparisonData[c] || !comparisonData[c].best || !comparisonData[c].worst ||
-                        comparisonData[c].bestScore === undefined || comparisonData[c].worstScore === undefined) {
-                        return false;
-                    }
-                    return alternatives.every(a => {
-                        const s = getScoreForAlternative(c, a);
-                        return s !== null && s !== undefined;
-                    });
-                });
-
-                // Critérios ainda pendentes (para listar ao usuário)
-                const pending = criteria.filter((c, idx) => {
-                    if (idx === currentCriterionIndex) return false; // ignora o atual
-                    if (!comparisonData[c] || !comparisonData[c].best || !comparisonData[c].worst ||
-                        comparisonData[c].bestScore === undefined || comparisonData[c].worstScore === undefined) {
-                        return true;
-                    }
-                    return alternatives.some(a => {
-                        const s = getScoreForAlternative(c, a);
-                        return s === null || s === undefined;
-                    });
-                });
-
-                if (allDone) {
-                    // Todos os critérios realmente concluídos
-                    html += `
-                        </div>
-                        <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #edf7f2, #d8f0e4); border-left: 4px solid var(--success); border-radius: var(--radius-sm);">
-                            <strong style="color: var(--success); display: block; margin-bottom: 4px;">🎉 Todos os critérios foram avaliados!</strong>
-                            Use o botão <strong>"Passo 4 →"</strong> abaixo para continuar para a atribuição de pesos.
-                        </div>
-                        <div style="margin-top:10px;">
-                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
-                                ↺ Reiniciar este Critério
-                            </button>
-                        </div>
-                    </div>
-                    `;
-                } else if (pending.length > 0) {
-                    // Ainda há critérios incompletos — guiar o usuário
-                    const pendingLinks = pending.map(c => {
-                        const idx = criteria.indexOf(c);
-                        return `<button onclick="goToCriterion(${idx})" style="background:var(--secondary);color:#fff;border:none;padding:4px 10px;border-radius:12px;font-size:0.82rem;font-weight:600;cursor:pointer;margin:2px;">${idx+1}. ${c}</button>`;
-                    }).join(' ');
-
-                    html += `
-                        </div>
-                        <div style="margin-top: 14px; padding: 14px; background: linear-gradient(135deg, #fef9ec, #fef3c7); border-left: 4px solid #f59e0b; border-radius: var(--radius-sm);">
-                            <strong style="color: #92400e; display: block; margin-bottom: 6px;">⚠️ Critério concluído, mas ainda faltam outros:</strong>
-                            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${pendingLinks}</div>
-                            <span style="font-size:0.82rem; color:#92400e;">Clique em um critério pendente acima ou use o painel de navegação no topo.</span>
-                        </div>
-                        <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
-                            <button class="btn btn-primary" onclick="goToCriterion(${criteria.indexOf(pending[0])})">
-                                Ir para próximo pendente →
-                            </button>
-                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
-                                ↺ Reiniciar este Critério
-                            </button>
-                        </div>
-                    </div>
-                    `;
-                } else {
-                    // Há próximo critério em sequência
-                    html += `
-                        </div>
-                        <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-                            <button class="btn btn-primary" onclick="nextCriterion()">
-                                Próximo Critério →
-                            </button>
-                            <button class="btn btn-secondary" onclick="resetCriterion('${criterion}')" title="Refazer os scores deste critério">
-                                ↺ Reiniciar este Critério
-                            </button>
-                        </div>
-                    </div>
-                    `;
-                }
-
-            }
         }
     }
-    
-    interface_.innerHTML = html;
+
+    // No mesmo nível de uma alternativa já avaliada
+    ranked.forEach(item => {
+        options += `
+            <div class="alternative-card" data-action="setSameLevel" data-alternative="${alternativeId}" data-reference="${item.id}">
+                <div class="position-label">⚖️ Mesmo nível de "${escapeHtml(item.name)}"</div>
+                <div class="position-description">Score igual: ${item.score}</div>
+            </div>
+        `;
+    });
+
+    return options;
 }
 
-// Funções de seleção e comparação sequencial
-function selectBest(criterion, alternative, index) {
-    comparisonData[criterion].best = alternative;
-    showComparisonForCriterion();
+function renderPlacement(entry, nextAlternativeId, criterionName_) {
+    const ranked = getRankedAlternatives(entry);
+    return `
+        <div style="margin: 20px 0;">
+            <div class="ranking-display">
+                <h4>🏆 Ranking atual para "${criterionName_}"</h4>
+                ${renderRankingRows(ranked, 'ranking-item')}
+            </div>
+            <h4>📍 Onde posicionar "${escapeHtml(alternativeName(nextAlternativeId))}"?</h4>
+            <p>Escolha a posição mais adequada comparando com as alternativas já avaliadas:</p>
+            <div class="position-options">${renderPositionOptions(nextAlternativeId, ranked)}</div>
+        </div>
+    `;
 }
 
-function selectWorst(criterion, alternative, index) {
-    comparisonData[criterion].worst = alternative;
-    showComparisonForCriterion();
+function renderCriterionDone(entry, criterionId, criterionName_) {
+    const resetButton = `
+        <button class="btn btn-secondary" data-action="resetCurrentCriterion" title="Refazer os scores deste critério">
+            ↺ Reiniciar este Critério
+        </button>
+    `;
+    const pending = state.criteria.filter(c => c.id !== criterionId && !isComplete(c.id));
+
+    let guidance;
+    if (pending.length === 0) {
+        guidance = `
+            <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #edf7f2, #d8f0e4); border-left: 4px solid var(--success); border-radius: var(--radius-sm);">
+                <strong style="color: var(--success); display: block; margin-bottom: 4px;">🎉 Todos os critérios foram avaliados!</strong>
+                Use o botão <strong>"Passo 4 →"</strong> abaixo para continuar para a atribuição de pesos.
+            </div>
+            <div style="margin-top:10px;">${resetButton}</div>
+        `;
+    } else {
+        const pendingLinks = pending.map(c => `
+            <button data-action="goToCriterion" data-id="${c.id}" style="background:var(--secondary);color:#fff;border:none;padding:4px 10px;border-radius:12px;font-size:0.82rem;font-weight:600;cursor:pointer;margin:2px;">${state.criteria.indexOf(c) + 1}. ${escapeHtml(c.name)}</button>
+        `).join(' ');
+
+        guidance = `
+            <div style="margin-top: 14px; padding: 14px; background: linear-gradient(135deg, #fef9ec, #fef3c7); border-left: 4px solid #f59e0b; border-radius: var(--radius-sm);">
+                <strong style="color: #92400e; display: block; margin-bottom: 6px;">⚠️ Critério concluído, mas ainda faltam outros:</strong>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${pendingLinks}</div>
+                <span style="font-size:0.82rem; color:#92400e;">Clique em um critério pendente acima ou use o painel de navegação no topo.</span>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary" data-action="goToCriterion" data-id="${pending[0].id}">Ir para próximo pendente →</button>
+                ${resetButton}
+            </div>
+        `;
+    }
+
+    return `
+        <div style="margin: 20px 0;">
+            <div class="success-message">✅ Avaliação completa para "${criterionName_}"!</div>
+            <div class="final-ranking">
+                <h4>🏆 Ranking final para "${criterionName_}"</h4>
+                ${renderRankingRows(getRankedAlternatives(entry), 'ranking-item final')}
+            </div>
+            ${guidance}
+        </div>
+    `;
 }
 
-function setBestScore(criterion) {
-    const score = parseFloat(document.getElementById('bestScore').value);
+function renderCriterionStage(entry, criterionId) {
+    const name = escapeHtml(criterionName(criterionId));
+
+    if (!entry.best) return renderSelectBest(name);
+    if (entry.bestScore === undefined) return renderBestScoreInput(entry);
+    if (!entry.worst) return renderSelectWorst(entry, name);
+    if (entry.worstScore === undefined) return renderWorstScoreInput(entry);
+    if (entry.selectedPosition) return renderPositionScoreInput(entry);
+
+    const nextAlternativeId = alternativeIds().find(id => getScore(entry, id) === null);
+    if (nextAlternativeId) return renderPlacement(entry, nextAlternativeId, name);
+
+    return renderCriterionDone(entry, criterionId, name);
+}
+
+function showComparisonForCriterion() {
+    const criterionId = currentCriterionId();
+    const entry = state.comparisonData[criterionId];
+
+    let html = renderCriterionNav() + renderManagementPanel() + `
+        <div class="comparison-question">
+            <div class="question-text">
+                Critério: ${escapeHtml(criterionName(criterionId))} (${state.currentCriterionIndex + 1} de ${state.criteria.length})
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: ${(state.currentCriterionIndex / state.criteria.length) * 100}%"></div>
+            </div>
+        </div>
+    `;
+
+    html += renderCriterionStage(entry, criterionId);
+
+    // Permite desfazer uma escolha errada antes de concluir o critério
+    // (com o critério concluído, o bloco final já oferece este botão)
+    if (entry.best && !isComplete(criterionId)) {
+        html += `
+            <div style="margin-top: 10px;">
+                <button class="btn btn-secondary" data-action="resetCurrentCriterion" title="Refazer os scores deste critério">
+                    ↺ Reiniciar este Critério
+                </button>
+            </div>
+        `;
+    }
+
+    document.getElementById('comparisonInterface').innerHTML = html;
+}
+
+function readScoreInput(id) {
+    return parseFloat(document.getElementById(id).value);
+}
+
+function setBestScore() {
+    const score = readScoreInput('bestScore');
     if (score >= 0 && score <= 10) {
-        comparisonData[criterion].bestScore = score;
+        currentEntry().bestScore = score;
         showComparisonForCriterion();
     } else {
         showError('Score deve estar entre 0 e 10.');
     }
 }
 
-function setWorstScore(criterion) {
-    const score = parseFloat(document.getElementById('worstScore').value);
-    const maxScore = comparisonData[criterion].bestScore;
-    if (score >= 0 && score <= maxScore) {
-        comparisonData[criterion].worstScore = score;
-        if (!comparisonData[criterion].scores) {
-            comparisonData[criterion].scores = {};
-        }
+function setWorstScore() {
+    const entry = currentEntry();
+    const score = readScoreInput('worstScore');
+    if (score >= 0 && score <= entry.bestScore) {
+        entry.worstScore = score;
+        entry.scores = entry.scores || {};
         showComparisonForCriterion();
     } else {
-        showError(`Score deve estar entre 0 e ${maxScore}.`);
+        showError(`Score deve estar entre 0 e ${entry.bestScore}.`);
     }
 }
 
-// Função principal para obter alternativas já avaliadas ordenadas por score
-function getEvaluatedAlternatives(criterion) {
-    const evaluated = [];
-    const addedAlternatives = new Set(); // Para evitar duplicatas
-    
-    // Inicializar scores se não existir
-    if (!comparisonData[criterion].scores) {
-        comparisonData[criterion].scores = {};
-    }
-    
-    // Adicionar melhor alternativa
-    if (comparisonData[criterion].best && comparisonData[criterion].bestScore !== null) {
-        evaluated.push({
-            name: comparisonData[criterion].best,
-            score: comparisonData[criterion].bestScore
-        });
-        addedAlternatives.add(comparisonData[criterion].best);
-    }
-    
-    // Adicionar pior alternativa
-    if (comparisonData[criterion].worst && comparisonData[criterion].worstScore !== null) {
-        evaluated.push({
-            name: comparisonData[criterion].worst,
-            score: comparisonData[criterion].worstScore
-        });
-        addedAlternatives.add(comparisonData[criterion].worst);
-    }
-    
-    // Adicionar alternativas já avaliadas (que não sejam best/worst)
-    Object.entries(comparisonData[criterion].scores).forEach(([alt, score]) => {
-        if (!addedAlternatives.has(alt) && score !== null && score !== undefined) {
-            evaluated.push({
-                name: alt,
-                score: score
-            });
-            addedAlternatives.add(alt);
-        }
-    });
-    
-    // Ordenar por score (decrescente)
-    return evaluated.sort((a, b) => b.score - a.score);
-}
+function setPositionBetweenScore() {
+    const entry = currentEntry();
+    const position = entry.selectedPosition;
+    const minScore = getScore(entry, position.lower);
+    const maxScore = getScore(entry, position.higher);
+    const score = readScoreInput('positionScore');
 
-// Função para gerar opções de posicionamento visual (MODIFICADA)
-function generatePositionOptions(criterion, currentAlt, evaluated) {
-    let options = '';
-    
-    // Opções: Entre duas alternativas consecutivas
-    for (let i = 0; i < evaluated.length - 1; i++) {
-        const higher = evaluated[i];
-        const lower = evaluated[i + 1];
-        
-        // Só adicionar se houver diferença entre os scores
-        if (higher.score !== lower.score) {
-            const avgScore = Math.round((higher.score + lower.score) / 2 * 10) / 10;
-            const minScore = lower.score;
-            const maxScore = higher.score;
-            const positionId = `between_${i}`;
-            
-            options += `
-                <div class="alternative-card" onclick="selectPositionBetween('${criterion}', '${currentAlt}', '${positionId}', ${minScore}, ${maxScore}, '${higher.name}', '${lower.name}')">
-                    <div class="position-label">📊 Entre "${higher.name}" e "${lower.name}" </div>
-                    <div class="position-description">Range: ${minScore} - ${maxScore}</div>
-                </div>
-            `;
-        }
-    }
-    
-    // Opções: Mesmo nível de cada alternativa já avaliada
-    evaluated.forEach(item => {
-        options += `
-            <div class="alternative-card" onclick="setPositionScore('${criterion}', '${currentAlt}', ${item.score})">
-                <div class="position-label">⚖️ Mesmo nível de "${item.name}"</div>
-                <div class="position-description">Score igual: ${item.score}</div>
-            </div>
-        `;
-    });
-    
-    return options;
-}
-
-// Nova função para selecionar posição entre duas alternativas
-function selectPositionBetween(criterion, alternative, positionId, minScore, maxScore, higherAlt, lowerAlt) {
-    // Salvar informações da posição selecionada
-    if (!comparisonData[criterion].selectedPosition) {
-        comparisonData[criterion].selectedPosition = {};
-    }
-    
-    comparisonData[criterion].selectedPosition = {
-        alternative: alternative,
-        positionId: positionId,
-        minScore: minScore,
-        maxScore: maxScore,
-        higherAlt: higherAlt,
-        lowerAlt: lowerAlt
-    };
-    
-    // Atualizar interface para mostrar o input de score
-    showComparisonForCriterion();
-}
-
-// Nova função para definir score da posição entre alternativas
-function setPositionBetweenScore(criterion) {
-    const score = parseFloat(document.getElementById('positionScore').value);
-    const position = comparisonData[criterion].selectedPosition;
-    
-    if (score >= position.minScore && score <= position.maxScore) {
-        if (!comparisonData[criterion].scores) {
-            comparisonData[criterion].scores = {};
-        }
-        
-        comparisonData[criterion].scores[position.alternative] = score;
-        
-        // Limpar posição selecionada
-        delete comparisonData[criterion].selectedPosition;
-        
-        console.log(`Score definido para ${position.alternative}: ${score}`);
-        console.log('Estado atual dos scores:', comparisonData[criterion].scores);
-        
+    if (score >= minScore && score <= maxScore) {
+        entry.scores[position.alternative] = score;
+        delete entry.selectedPosition;
         showComparisonForCriterion();
     } else {
-        showError(`Score deve estar entre ${position.minScore} e ${position.maxScore}.`);
+        showError(`Score deve estar entre ${minScore} e ${maxScore}.`);
     }
 }
 
-// Função para definir score baseado na posição escolhida
-function setPositionScore(criterion, alternative, score) {
-    if (!comparisonData[criterion].scores) {
-        comparisonData[criterion].scores = {};
-    }
-    
-    // Salvar o score da alternativa
-    comparisonData[criterion].scores[alternative] = score;
-    
-    console.log(`Score definido para ${alternative}: ${score}`);
-    console.log('Estado atual dos scores:', comparisonData[criterion].scores);
-    
-    // Atualizar interface para próxima alternativa
+function resetCurrentCriterion() {
+    state.comparisonData[currentCriterionId()] = {};
     showComparisonForCriterion();
-}
-
-// Função para obter ranking final de um critério
-function getFinalRanking(criterion) {
-    const ranking = [];
-    
-    // Adicionar apenas alternativas que foram avaliadas
-    alternatives.forEach(alt => {
-        const score = getScoreForAlternative(criterion, alt);
-        if (score !== null && score !== undefined) {
-            ranking.push({
-                name: alt,
-                score: score
-            });
-        }
-    });
-    
-    // Ordenar por score (decrescente)
-    return ranking.sort((a, b) => b.score - a.score);
-}
-
-// Função auxiliar para obter score de uma alternativa
-function getScoreForAlternative(criterion, alternative) {
-    if (alternative === comparisonData[criterion].best) {
-        return comparisonData[criterion].bestScore;
-    }
-    if (alternative === comparisonData[criterion].worst) {
-        return comparisonData[criterion].worstScore;
-    }
-    return comparisonData[criterion].scores?.[alternative] || null;
-}
-
-function goToCriterion(index) {
-    currentCriterionIndex = index;
-    showComparisonForCriterion();
-}
-
-function resetCriterion(criterion) {
-    comparisonData[criterion] = {};
-    showComparisonForCriterion();
-}
-
-function nextCriterion() {
-    currentCriterionIndex++;
-    if (currentCriterionIndex < criteria.length) {
-        showComparisonForCriterion();
-    } else {
-        // Todos os critérios foram avaliados — re-renderizar para mostrar banner de conclusão
-        currentCriterionIndex = criteria.length - 1;
-        showComparisonForCriterion();
-    }
-}
-
-// Função legacy mantida por compat (não mais utilizada no fluxo principal)
-function calculateAndShowFinalResults() {
-    // Fluxo correto: o usuário usa o botão "Passo 4 →" da navegação
-    // Esta função não é mais chamada
 }
 
 function validateAllComparisons() {
-    for (let criterion of criteria) {
-        if (!comparisonData[criterion] || 
-            !comparisonData[criterion].best || 
-            !comparisonData[criterion].worst ||
-            comparisonData[criterion].bestScore === undefined ||
-            comparisonData[criterion].worstScore === undefined) {
-            showError('Complete todas as comparações antes de continuar.');
-            return false;
-        }
-        
-        // Verificar se todas as alternativas têm scores
-        for (let alt of alternatives) {
-            const score = getScoreForAlternative(criterion, alt);
-            if (score === null || score === undefined) {
-                showError('Complete todas as avaliações antes de continuar.');
-                return false;
-            }
-        }
+    if (!state.criteria.every(criterion => isComplete(criterion.id))) {
+        showError('Complete todas as avaliações antes de continuar.');
+        return false;
     }
     return true;
 }
 
-// --- Funções de gerenciamento de critérios/alternativas no Passo 3 ---
-
-function toggleManagementPanel() {
-    const panel = document.getElementById('managementPanelContent');
-    if (panel) {
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-function removeCriterionFromStep3(index) {
-    if (criteria.length <= 2) {
+function removeCriterionFromStep3(id) {
+    if (state.criteria.length <= 2) {
         showError('É necessário manter pelo menos 2 critérios.');
         return;
     }
-    
-    const removed = criteria[index];
-    
-    if (!confirm(`Remover o critério "${removed}"? Os scores associados serão perdidos.`)) {
+
+    const removedName = criterionName(id);
+    if (!confirm(`Remover o critério "${removedName}"? Os scores associados serão perdidos.`)) {
         return;
     }
-    
-    // Remover do array e limpar dados
-    removeCriterion(index);
-    
-    // Ajustar currentCriterionIndex se necessário
-    if (currentCriterionIndex >= criteria.length) {
-        currentCriterionIndex = criteria.length - 1;
-    }
-    
-    showSuccess(`Critério "${removed}" removido com sucesso.`);
+
+    removeCriterion(id);
+    state.currentCriterionIndex = Math.min(state.currentCriterionIndex, state.criteria.length - 1);
+
+    showSuccess(`Critério "${removedName}" removido com sucesso.`);
     showComparisonForCriterion();
 }
 
-function removeAlternativeFromStep3(index) {
-    if (alternatives.length <= 2) {
+function removeAlternativeFromStep3(id) {
+    if (state.alternatives.length <= 2) {
         showError('É necessário manter pelo menos 2 alternativas.');
         return;
     }
-    
-    const removed = alternatives[index];
-    
-    if (!confirm(`Remover a alternativa "${removed}"? Os scores associados serão recalculados.`)) {
+
+    const removedName = alternativeName(id);
+    if (!confirm(`Remover a alternativa "${removedName}"? Os scores associados serão recalculados.`)) {
         return;
     }
-    
-    // Remover do array e limpar dados
-    removeAlternative(index);
-    
-    showSuccess(`Alternativa "${removed}" removida com sucesso.`);
+
+    removeAlternative(id);
+
+    showSuccess(`Alternativa "${removedName}" removida com sucesso.`);
     showComparisonForCriterion();
 }
+
+registerActions({
+    goToCriterion: el => {
+        state.currentCriterionIndex = criterionIds().indexOf(el.dataset.id);
+        showComparisonForCriterion();
+    },
+    toggleManagementPanel: () => {
+        const panel = document.getElementById('managementPanelContent');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    },
+    removeCriterionFromStep3: el => removeCriterionFromStep3(el.dataset.id),
+    removeAlternativeFromStep3: el => removeAlternativeFromStep3(el.dataset.id),
+    selectBest: el => {
+        currentEntry().best = el.dataset.id;
+        showComparisonForCriterion();
+    },
+    selectWorst: el => {
+        currentEntry().worst = el.dataset.id;
+        showComparisonForCriterion();
+    },
+    setBestScore,
+    setWorstScore,
+    setPositionBetweenScore,
+    selectPositionBetween: el => {
+        const { alternative, higher, lower } = el.dataset;
+        currentEntry().selectedPosition = { alternative, higher, lower };
+        showComparisonForCriterion();
+    },
+    setSameLevel: el => {
+        const entry = currentEntry();
+        entry.scores[el.dataset.alternative] = getScore(entry, el.dataset.reference);
+        showComparisonForCriterion();
+    },
+    resetCurrentCriterion,
+});

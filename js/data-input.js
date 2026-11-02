@@ -1,322 +1,209 @@
-// Gerenciamento de critérios
-function addCriterion() {
-    const input = document.getElementById('criterionInput');
-    const value = input.value.trim();
-    
-    if (!value) {
-        showError('Digite o nome do critério.');
+// Gerenciamento de critérios e alternativas
+
+const ITEM_KINDS = {
+    criterion: {
+        items: () => state.criteria,
+        idPrefix: 'c',
+        inputId: 'criterionInput',
+        listId: 'criteriaList',
+        messages: {
+            empty: 'Digite o nome do critério.',
+            duplicate: 'Este critério já foi adicionado.',
+            added: 'Critério adicionado com sucesso!',
+            emptyName: 'O nome do critério não pode estar vazio.',
+            duplicateName: 'Já existe um critério com este nome.',
+            renamed: 'Critério renomeado com sucesso!',
+            none: 'Nenhum critério adicionado ainda',
+        },
+    },
+    alternative: {
+        items: () => state.alternatives,
+        idPrefix: 'a',
+        inputId: 'alternativeInput',
+        listId: 'alternativesList',
+        messages: {
+            empty: 'Digite o nome da alternativa.',
+            duplicate: 'Esta alternativa já foi adicionada.',
+            added: 'Alternativa adicionada com sucesso!',
+            emptyName: 'O nome da alternativa não pode estar vazio.',
+            duplicateName: 'Já existe uma alternativa com este nome.',
+            renamed: 'Alternativa renomeada com sucesso!',
+            none: 'Nenhuma alternativa adicionada ainda',
+        },
+    },
+};
+
+function nameExists(kind, name) {
+    return ITEM_KINDS[kind].items().some(item => item.name === name);
+}
+
+function addItem(kind) {
+    const config = ITEM_KINDS[kind];
+    const input = document.getElementById(config.inputId);
+    const name = input.value.trim();
+
+    if (!name) {
+        showError(config.messages.empty);
         return;
     }
-    
-    if (criteria.includes(value)) {
-        showError('Este critério já foi adicionado.');
+    if (nameExists(kind, name)) {
+        showError(config.messages.duplicate);
         return;
     }
-    
-    criteria.push(value);
+
+    config.items().push({ id: createId(config.idPrefix), name });
     input.value = '';
-    updateCriteriaList();
-    showSuccess('Critério adicionado com sucesso!');
+    renderItemList(kind);
+    showSuccess(config.messages.added);
     scheduleAutoSave();
 }
 
-function removeCriterion(index) {
-    const removed = criteria[index];
-    criteria.splice(index, 1);
-    
-    // Limpar dados associados ao critério removido
-    if (comparisonData && comparisonData[removed]) {
-        delete comparisonData[removed];
-    }
-    if (weights && weights[removed]) {
-        delete weights[removed];
-    }
-    if (scores && scores[removed]) {
-        delete scores[removed];
-    }
-    
-    updateCriteriaList();
+function addCriterion() {
+    addItem('criterion');
+}
+
+function addAlternative() {
+    addItem('alternative');
+}
+
+function removeCriterion(id) {
+    state.criteria = state.criteria.filter(c => c.id !== id);
+    delete state.comparisonData[id];
+    delete state.weights[id];
+    forgetCriterionInputs(id);
+
+    renderItemList('criterion');
     scheduleAutoSave();
 }
 
-function editCriterion(index) {
-    const oldName = criteria[index];
-    const listItem = document.getElementById(`criterion-item-${index}`);
-    if (!listItem) return;
-    
-    // Substituir conteúdo por input de edição inline
-    const nameSpan = listItem.querySelector('.item-name-text');
-    const actionsDiv = listItem.querySelector('.item-actions');
-    
+function removeAlternative(id) {
+    state.alternatives = state.alternatives.filter(a => a.id !== id);
+
+    Object.keys(state.comparisonData).forEach(criterionId => {
+        const entry = state.comparisonData[criterionId];
+
+        // Sem a melhor ou a pior alternativa, as âncoras do critério deixam de valer
+        if (entry.best === id || entry.worst === id) {
+            state.comparisonData[criterionId] = {};
+            return;
+        }
+        if (entry.scores) delete entry.scores[id];
+
+        const position = entry.selectedPosition;
+        if (position && [position.alternative, position.higher, position.lower].includes(id)) {
+            delete entry.selectedPosition;
+        }
+    });
+
+    renderItemList('alternative');
+    scheduleAutoSave();
+}
+
+function startEditingItem(kind, id) {
+    const config = ITEM_KINDS[kind];
+    const item = config.items().find(i => i.id === id);
+    const listItem = document.getElementById(`${kind}-item-${id}`);
+    if (!item || !listItem) return;
+
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = oldName;
+    input.value = item.name;
     input.className = 'edit-inline-input';
     input.style.cssText = 'flex:1; padding:6px 10px; border:2px solid var(--secondary); border-radius:6px; font-size:0.92rem; font-family:inherit; outline:none;';
-    
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'btn btn-primary btn-small';
-    saveBtn.textContent = '✓';
-    saveBtn.style.cssText = 'padding:6px 12px; min-width:auto;';
-    
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'btn btn-secondary btn-small';
-    cancelBtn.textContent = '✕';
-    cancelBtn.style.cssText = 'padding:6px 12px; min-width:auto;';
-    
+
+    const createButton = (className, label) => {
+        const button = document.createElement('button');
+        button.className = `btn ${className} btn-small`;
+        button.textContent = label;
+        button.style.cssText = 'padding:6px 12px; min-width:auto;';
+        return button;
+    };
+    const saveButton = createButton('btn-primary', '✓');
+    const cancelButton = createButton('btn-secondary', '✕');
+
     const confirmEdit = () => {
         const newName = input.value.trim();
         if (!newName) {
-            showError('O nome do critério não pode estar vazio.');
+            showError(config.messages.emptyName);
             return;
         }
-        if (newName !== oldName && criteria.includes(newName)) {
-            showError('Já existe um critério com este nome.');
+        if (newName !== item.name && nameExists(kind, newName)) {
+            showError(config.messages.duplicateName);
             return;
         }
-        
-        // Atualizar o nome no array
-        criteria[index] = newName;
-        
-        // Atualizar chaves em comparisonData
-        if (comparisonData && comparisonData[oldName]) {
-            comparisonData[newName] = comparisonData[oldName];
-            delete comparisonData[oldName];
-        }
-        
-        // Atualizar chaves em weights
-        if (weights && weights[oldName] !== undefined) {
-            weights[newName] = weights[oldName];
-            delete weights[oldName];
-        }
-        
-        // Atualizar chaves em scores
-        if (scores && scores[oldName] !== undefined) {
-            scores[newName] = scores[oldName];
-            delete scores[oldName];
-        }
-        
-        updateCriteriaList();
-        showSuccess('Critério renomeado com sucesso!');
+
+        item.name = newName;
+        renderItemList(kind);
+        showSuccess(config.messages.renamed);
         scheduleAutoSave();
     };
-    
-    saveBtn.onclick = confirmEdit;
-    cancelBtn.onclick = () => updateCriteriaList();
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') confirmEdit();
+
+    saveButton.onclick = confirmEdit;
+    cancelButton.onclick = () => renderItemList(kind);
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') confirmEdit();
+        if (event.key === 'Escape') renderItemList(kind);
     });
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') updateCriteriaList();
-    });
-    
-    // Substituir conteúdo
-    nameSpan.replaceWith(input);
-    actionsDiv.innerHTML = '';
-    actionsDiv.appendChild(saveBtn);
-    actionsDiv.appendChild(cancelBtn);
-    
+
+    listItem.querySelector('.item-name-text').replaceWith(input);
+    listItem.querySelector('.item-actions').replaceChildren(saveButton, cancelButton);
+
     input.focus();
     input.select();
+}
+
+function renderItemList(kind) {
+    const config = ITEM_KINDS[kind];
+    const list = document.getElementById(config.listId);
+    const items = config.items();
+
+    if (items.length === 0) {
+        list.innerHTML = `<p style="color: #64748b; text-align: center;">${config.messages.none}</p>`;
+        return;
+    }
+
+    list.innerHTML = items.map((item, index) => `
+        <div class="item" id="${kind}-item-${item.id}">
+            <span class="item-name-text"><strong>${index + 1}.</strong> ${escapeHtml(item.name)}</span>
+            <div class="item-actions" style="display:flex; gap:6px;">
+                <button class="edit-btn" data-action="editItem" data-kind="${kind}" data-id="${item.id}">✏️ Editar</button>
+                <button class="remove-btn" data-action="removeItem" data-kind="${kind}" data-id="${item.id}">Remover</button>
+            </div>
+        </div>
+    `).join('');
 }
 
 function updateCriteriaList() {
-    const list = document.getElementById('criteriaList');
-    
-    if (criteria.length === 0) {
-        list.innerHTML = '<p style="color: #64748b; text-align: center;">Nenhum critério adicionado ainda</p>';
-        return;
-    }
-    
-    let html = '';
-    criteria.forEach((criterion, index) => {
-        html += `
-            <div class="item" id="criterion-item-${index}">
-                <span class="item-name-text"><strong>${index + 1}.</strong> ${criterion}</span>
-                <div class="item-actions" style="display:flex; gap:6px;">
-                    <button class="edit-btn" onclick="editCriterion(${index})">✏️ Editar</button>
-                    <button class="remove-btn" onclick="removeCriterion(${index})">Remover</button>
-                </div>
-            </div>
-        `;
-    });
-    
-    list.innerHTML = html;
-}
-
-// Função para adicionar critérios da IA (compatível com o sistema existente)
-function addCriteriaFromAI(aiCriteria) {
-    let addedCount = 0;
-    
-    aiCriteria.forEach(criterio => {
-        const cleanCriterio = criterio.trim();
-        if (cleanCriterio && !criteria.includes(cleanCriterio)) {
-            criteria.push(cleanCriterio);
-            addedCount++;
-        }
-    });
-    
-    updateCriteriaList();
-    
-    if (addedCount > 0) {
-        showSuccess(`${addedCount} critério(s) da IA adicionado(s) com sucesso!`);
-    }
-    
-    return addedCount;
-}
-
-
-// Gerenciamento de alternativas
-function addAlternative() {
-    const input = document.getElementById('alternativeInput');
-    const value = input.value.trim();
-    
-    if (!value) {
-        showError('Digite o nome da alternativa.');
-        return;
-    }
-    
-    if (alternatives.includes(value)) {
-        showError('Esta alternativa já foi adicionada.');
-        return;
-    }
-    
-    alternatives.push(value);
-    input.value = '';
-    updateAlternativesList();
-    showSuccess('Alternativa adicionada com sucesso!');
-    scheduleAutoSave();
-}
-
-function removeAlternative(index) {
-    const removed = alternatives[index];
-    alternatives.splice(index, 1);
-    
-    // Limpar dados associados à alternativa removida em todos os critérios
-    if (comparisonData) {
-        Object.keys(comparisonData).forEach(criterion => {
-            const cd = comparisonData[criterion];
-            if (!cd) return;
-            
-            if (cd.best === removed) {
-                // A melhor alternativa foi removida — resetar este critério
-                comparisonData[criterion] = {};
-                return;
-            }
-            if (cd.worst === removed) {
-                // A pior alternativa foi removida — resetar este critério
-                comparisonData[criterion] = {};
-                return;
-            }
-            if (cd.scores && cd.scores[removed] !== undefined) {
-                delete cd.scores[removed];
-            }
-        });
-    }
-    
-    updateAlternativesList();
-    scheduleAutoSave();
-}
-
-function editAlternative(index) {
-    const oldName = alternatives[index];
-    const listItem = document.getElementById(`alternative-item-${index}`);
-    if (!listItem) return;
-    
-    // Substituir conteúdo por input de edição inline
-    const nameSpan = listItem.querySelector('.item-name-text');
-    const actionsDiv = listItem.querySelector('.item-actions');
-    
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = oldName;
-    input.className = 'edit-inline-input';
-    input.style.cssText = 'flex:1; padding:6px 10px; border:2px solid var(--secondary); border-radius:6px; font-size:0.92rem; font-family:inherit; outline:none;';
-    
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'btn btn-primary btn-small';
-    saveBtn.textContent = '✓';
-    saveBtn.style.cssText = 'padding:6px 12px; min-width:auto;';
-    
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'btn btn-secondary btn-small';
-    cancelBtn.textContent = '✕';
-    cancelBtn.style.cssText = 'padding:6px 12px; min-width:auto;';
-    
-    const confirmEdit = () => {
-        const newName = input.value.trim();
-        if (!newName) {
-            showError('O nome da alternativa não pode estar vazio.');
-            return;
-        }
-        if (newName !== oldName && alternatives.includes(newName)) {
-            showError('Já existe uma alternativa com este nome.');
-            return;
-        }
-        
-        // Atualizar o nome no array
-        alternatives[index] = newName;
-        
-        // Atualizar referências em comparisonData
-        if (comparisonData) {
-            Object.keys(comparisonData).forEach(criterion => {
-                const cd = comparisonData[criterion];
-                if (!cd) return;
-                
-                if (cd.best === oldName) cd.best = newName;
-                if (cd.worst === oldName) cd.worst = newName;
-                
-                if (cd.scores && cd.scores[oldName] !== undefined) {
-                    cd.scores[newName] = cd.scores[oldName];
-                    delete cd.scores[oldName];
-                }
-            });
-        }
-        
-        updateAlternativesList();
-        showSuccess('Alternativa renomeada com sucesso!');
-        scheduleAutoSave();
-    };
-    
-    saveBtn.onclick = confirmEdit;
-    cancelBtn.onclick = () => updateAlternativesList();
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') confirmEdit();
-    });
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') updateAlternativesList();
-    });
-    
-    // Substituir conteúdo
-    nameSpan.replaceWith(input);
-    actionsDiv.innerHTML = '';
-    actionsDiv.appendChild(saveBtn);
-    actionsDiv.appendChild(cancelBtn);
-    
-    input.focus();
-    input.select();
+    renderItemList('criterion');
 }
 
 function updateAlternativesList() {
-    const list = document.getElementById('alternativesList');
-    
-    if (alternatives.length === 0) {
-        list.innerHTML = '<p style="color: #64748b; text-align: center;">Nenhuma alternativa adicionada ainda</p>';
-        return;
-    }
-    
-    let html = '';
-    alternatives.forEach((alternative, index) => {
-        html += `
-            <div class="item" id="alternative-item-${index}">
-                <span class="item-name-text"><strong>${index + 1}.</strong> ${alternative}</span>
-                <div class="item-actions" style="display:flex; gap:6px;">
-                    <button class="edit-btn" onclick="editAlternative(${index})">✏️ Editar</button>
-                    <button class="remove-btn" onclick="removeAlternative(${index})">Remover</button>
-                </div>
-            </div>
-        `;
+    renderItemList('alternative');
+}
+
+registerActions({
+    editItem: el => startEditingItem(el.dataset.kind, el.dataset.id),
+    removeItem: el => (el.dataset.kind === 'criterion' ? removeCriterion : removeAlternative)(el.dataset.id),
+});
+
+// Adiciona os critérios aceitos das sugestões da IA
+function addCriteriaFromAI(suggestions) {
+    let addedCount = 0;
+
+    suggestions.forEach(suggestion => {
+        const name = suggestion.trim();
+        if (name && !nameExists('criterion', name)) {
+            state.criteria.push({ id: createId('c'), name });
+            addedCount++;
+        }
     });
-    
-    list.innerHTML = html;
+
+    updateCriteriaList();
+
+    if (addedCount > 0) {
+        showSuccess(`${addedCount} critério(s) da IA adicionado(s) com sucesso!`);
+        scheduleAutoSave();
+    }
+
+    return addedCount;
 }

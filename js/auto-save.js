@@ -1,3 +1,5 @@
+let autoSaveTimeout;
+
 function scheduleAutoSave() {
     if (autoSaveTimeout) {
         clearTimeout(autoSaveTimeout);
@@ -8,22 +10,13 @@ function scheduleAutoSave() {
 }
 
 function salvarAutomaticamente() {
-    const titulo = document.getElementById('problemTitle').value.trim();
+    const titulo = state.problemTitle;
     
     if (!titulo) {
         return;
     }
     
-    const novaMatriz = {
-        problemTitle: titulo,
-        problemDescription: document.getElementById('problemDescription').value.trim(),
-        criteria,
-        alternatives,
-        weights,
-        scores,
-        comparisonData,
-        lastSaved: new Date().toISOString()
-    };
+    const novaMatriz = { ...state, lastSaved: new Date().toISOString() };
 
     const todas = JSON.parse(localStorage.getItem('matrizesSalvas')) || {};
     todas[titulo] = novaMatriz;
@@ -88,16 +81,22 @@ function carregarMatrizNomeada() {
 
     const data = todas[nomeMatriz];
 
-    document.getElementById('problemTitle').value = data.problemTitle || '';
-    document.getElementById('problemDescription').value = data.problemDescription || '';
-    criteria = data.criteria || [];
-    alternatives = data.alternatives || [];
-    weights = data.weights || {};
-    scores = data.scores || {};
-    comparisonData = data.comparisonData || {};
+    // Matrizes salvas antes da adoção de ids guardavam os nomes como strings
+    if (typeof data.criteria?.[0] === 'string' || typeof data.alternatives?.[0] === 'string') {
+        showError('Esta matriz foi salva em um formato antigo e não pode ser carregada.');
+        return;
+    }
+
+    const { lastSaved, ...savedState } = data;
+    state = { ...createInitialState(), ...savedState, currentStep: 1 };
+
+    document.getElementById('problemTitle').value = state.problemTitle;
+    document.getElementById('problemDescription').value = state.problemDescription;
+    document.getElementById('weightingMethod').value = state.weightingMethod;
 
     updateCriteriaList();
     updateAlternativesList();
+    showStep(1);
     showSuccess(`✅ Matriz "${nomeMatriz}" carregada com sucesso!`);
 }
 
