@@ -85,10 +85,12 @@ preference-matrix/
 │
 ├── js/                  # Scripts e lógicas modulares
 │   ├── main.js             # Inicialização, eventos gerais e state reset
-│   ├── utils.js            # Sistema de notificações Toast
+│   ├── utils.js            # Escape de texto, delegação de eventos e notificações Toast
+│   ├── state.js            # Objeto único com o estado da análise
+│   ├── decision-core.js    # Regras de cálculo, sem acesso ao DOM
 │   ├── data-input.js       # Gestão do array de critérios e alternativas
 │   ├── comparison.js       # Lógica do assistente de definição de scores (âncoras)
-│   ├── swing-weighting.js  # Algoritmos de cálculo de pesos (Rank-Sum, Swing)
+│   ├── swing-weighting.js  # Formulários de pesagem (Rank-Sum, Swing)
 │   ├── decision-logic.js   # Controle de fluxo, validações e cálculo dos resultados
 │   ├── ai-suggestions.js   # Comunicação via Fetch com o Google Gemini
 │   ├── auto-save.js        # Funções do localStorage (salvar/carregar matrizes)
