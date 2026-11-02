@@ -5,83 +5,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Matriz de Preferência</title>
     <meta name="description" content="Ferramenta de apoio à decisão multicritério baseada no método da Matriz de Preferência.">
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
 
     <script src="libs/html2canvas.min.js"></script>
-    <script src="js/utils.js?v=5"></script>
-    <script src="js/state.js?v=5"></script>
-    <script src="js/decision-core.js?v=5"></script>
-    <script src="js/data-input.js?v=5"></script>
-    <script src="js/swing-weighting.js?v=5"></script>
-    <script src="js/comparison.js?v=5"></script>
-    <script src="js/ai-suggestions.js?v=5"></script>
-    <script src="js/decision-logic.js?v=5"></script>
-    <script src="js/export-utils.js?v=5"></script>
-    <script src="js/main.js?v=5"></script>
-    <script src="js/auto-save.js?v=5"></script>
+    <script src="js/utils.js?v=6"></script>
+    <script src="js/state.js?v=6"></script>
+    <script src="js/decision-core.js?v=6"></script>
+    <script src="js/data-input.js?v=6"></script>
+    <script src="js/swing-weighting.js?v=6"></script>
+    <script src="js/comparison.js?v=6"></script>
+    <script src="js/ai-suggestions.js?v=6"></script>
+    <script src="js/decision-logic.js?v=6"></script>
+    <script src="js/export-utils.js?v=6"></script>
+    <script src="js/main.js?v=6"></script>
+    <script src="js/auto-save.js?v=6"></script>
 
 </head>
 <body>
     <div class="container">
 
         <!-- HEADER -->
-        <div class="header" style="position: relative; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 24px;">
-            <div style="width: 216px; height: 216px; flex-shrink: 0; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(21,53,87,0.18);">
-                <img
-                    src="images/logo.webp" width="432" height="432"
-                    alt="Logo Decisão de Valor"
-                    style="width: 100%; height: 100%; object-fit: cover; object-position: center; display: block;"
-                >
+        <div class="header">
+            <div class="header-logo">
+                <img src="images/logo.webp" width="432" height="432" alt="Logo Decisão de Valor">
             </div>
-            <div style="text-align: left;">
-                <h1 style="margin: 0;">Matriz de Preferência</h1>
-                <p style="margin: 0;">Ferramenta de apoio à decisão multicritério</p>
+            <div class="header-text">
+                <h1>Matriz de Preferência</h1>
+                <p>Ferramenta de apoio à decisão multicritério</p>
             </div>
         </div>
 
         <!-- RÉGUA DE PROGRESSO DOS PASSOS -->
         <nav class="step-progress" id="stepProgressBar" aria-label="Progresso dos passos">
-            <div class="step-progress-item" id="prog-item-0" onclick="goToStep(1)" style="cursor: pointer;">
-                <div class="step-progress-item-wrap">
-                    <div class="step-dot intro active" id="prog-dot-0">●</div>
-                    <div class="step-label">Apresentação</div>
-                </div>
-            </div>
-            <div class="step-connector" id="prog-conn-0"></div>
-            <div class="step-progress-item" id="prog-item-1" onclick="goToStep(2)" style="cursor: pointer;">
-                <div class="step-progress-item-wrap">
-                    <div class="step-dot" id="prog-dot-1">1</div>
-                    <div class="step-label">Critérios</div>
-                </div>
-            </div>
-            <div class="step-connector" id="prog-conn-1"></div>
-            <div class="step-progress-item" id="prog-item-2" onclick="goToStep(3)" style="cursor: pointer;">
-                <div class="step-progress-item-wrap">
-                    <div class="step-dot" id="prog-dot-2">2</div>
-                    <div class="step-label">Alternativas</div>
-                </div>
-            </div>
-            <div class="step-connector" id="prog-conn-2"></div>
-            <div class="step-progress-item" id="prog-item-3" onclick="goToStep(4)" style="cursor: pointer;">
-                <div class="step-progress-item-wrap">
-                    <div class="step-dot" id="prog-dot-3">3</div>
-                    <div class="step-label">Scores</div>
-                </div>
-            </div>
-            <div class="step-connector" id="prog-conn-3"></div>
-            <div class="step-progress-item" id="prog-item-4" onclick="goToStep(5)" style="cursor: pointer;">
-                <div class="step-progress-item-wrap">
-                    <div class="step-dot" id="prog-dot-4">4</div>
-                    <div class="step-label">Pesos</div>
-                </div>
-            </div>
-            <div class="step-connector" id="prog-conn-4"></div>
-            <div class="step-progress-item" id="prog-item-5" onclick="goToStep(6)" style="cursor: pointer;">
-                <div class="step-progress-item-wrap">
-                    <div class="step-dot" id="prog-dot-5">5</div>
-                    <div class="step-label">Resultado</div>
-                </div>
-            </div>
+            <button type="button" class="step-progress-item" id="prog-item-0" onclick="goToStep(1)" aria-label="Apresentação" aria-current="step">
+                <span class="step-progress-item-wrap">
+                    <span class="step-dot intro active" id="prog-dot-0">●</span>
+                    <span class="step-label">Apresentação</span>
+                </span>
+            </button>
+            <div class="step-connector" id="prog-conn-0" aria-hidden="true"></div>
+            <button type="button" class="step-progress-item" id="prog-item-1" onclick="goToStep(2)" aria-label="Critérios">
+                <span class="step-progress-item-wrap">
+                    <span class="step-dot" id="prog-dot-1">1</span>
+                    <span class="step-label">Critérios</span>
+                </span>
+            </button>
+            <div class="step-connector" id="prog-conn-1" aria-hidden="true"></div>
+            <button type="button" class="step-progress-item" id="prog-item-2" onclick="goToStep(3)" aria-label="Alternativas">
+                <span class="step-progress-item-wrap">
+                    <span class="step-dot" id="prog-dot-2">2</span>
+                    <span class="step-label">Alternativas</span>
+                </span>
+            </button>
+            <div class="step-connector" id="prog-conn-2" aria-hidden="true"></div>
+            <button type="button" class="step-progress-item" id="prog-item-3" onclick="goToStep(4)" aria-label="Scores">
+                <span class="step-progress-item-wrap">
+                    <span class="step-dot" id="prog-dot-3">3</span>
+                    <span class="step-label">Scores</span>
+                </span>
+            </button>
+            <div class="step-connector" id="prog-conn-3" aria-hidden="true"></div>
+            <button type="button" class="step-progress-item" id="prog-item-4" onclick="goToStep(5)" aria-label="Pesos">
+                <span class="step-progress-item-wrap">
+                    <span class="step-dot" id="prog-dot-4">4</span>
+                    <span class="step-label">Pesos</span>
+                </span>
+            </button>
+            <div class="step-connector" id="prog-conn-4" aria-hidden="true"></div>
+            <button type="button" class="step-progress-item" id="prog-item-5" onclick="goToStep(6)" aria-label="Resultado">
+                <span class="step-progress-item-wrap">
+                    <span class="step-dot" id="prog-dot-5">5</span>
+                    <span class="step-label">Resultado</span>
+                </span>
+            </button>
         </nav>
 
         <!-- BANNER DE CONTEXTO PERSISTENTE -->
@@ -96,8 +92,8 @@
         <div class="api-config" id="apiConfigSection">
             <div class="api-config-header" onclick="toggleApiConfig()">
                 <h3>🤖 Configuração da IA (Opcional)</h3>
-                <button class="api-toggle-btn" id="apiToggleBtn" aria-label="Recolher configuração">
-                    <svg id="apiToggleIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <button type="button" class="api-toggle-btn" id="apiToggleBtn" aria-label="Configuração da IA" aria-expanded="true" aria-controls="apiConfigBody">
+                    <svg id="apiToggleIcon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="18 15 12 9 6 15"></polyline>
                     </svg>
                 </button>
@@ -105,7 +101,7 @@
             <div class="api-config-body" id="apiConfigBody">
                 <div class="api-config-content">
                     <div class="api-input-group">
-                        <input type="password" id="apiKey" placeholder="Cole sua chave da API do Google Gemini aqui">
+                        <input type="password" id="apiKey" aria-label="Chave da API do Google Gemini" autocomplete="off" placeholder="Cole sua chave da API do Google Gemini aqui">
                         <button class="btn btn-primary btn-small" onclick="salvarChaveAPI()">Salvar</button>
                         <button class="btn btn-secondary btn-small" onclick="limparAPI()">Limpar</button>
                     </div>
@@ -113,7 +109,7 @@
                         ⚠️ Configure sua chave da API do Gemini para receber sugestões automáticas de critérios
                     </div>
                     <p>
-                        <strong>Como obter:</strong> Acesse <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> e crie uma chave gratuita
+                        <strong>Como obter:</strong> Acesse <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> e crie uma chave gratuita
                     </p>
                     <p style="margin-top: 6px; font-size: 0.8rem; color: var(--text-soft); padding: 6px; background: rgba(37,150,190,0.05); border-left: 3px solid var(--secondary); border-radius: 0 4px 4px 0;">
                         💡 <strong>Nota de Design:</strong> As sugestões de IA são intencionalmente limitadas à definição dos critérios. Isso evita "viés inconsciente", garantindo que a pontuação das alternativas e o peso das suas escolhas sejam 100% humanos.
@@ -135,7 +131,7 @@
             <div class="step active" id="step1">
                 <div class="step-header">
                     <div class="step-number-badge">Apresentação</div>
-                    <div class="step-title">Definição do Problema</div>
+                    <h2 class="step-title">Definição do Problema</h2>
                     <div class="step-description">Descreva o problema de decisão que será analisado ao longo do processo</div>
                 </div>
 
@@ -180,7 +176,7 @@
             <div class="step" id="step2">
                 <div class="step-header">
                     <div class="step-number-badge">Passo 1</div>
-                    <div class="step-title">Escolha dos Critérios</div>
+                    <h2 class="step-title">Escolha dos Critérios</h2>
                     <div class="step-description">Defina os fatores que serão utilizados para avaliar as alternativas</div>
                 </div>
 
@@ -216,7 +212,7 @@
             <div class="step" id="step3">
                 <div class="step-header">
                     <div class="step-number-badge">Passo 2</div>
-                    <div class="step-title">Definição das Alternativas</div>
+                    <h2 class="step-title">Definição das Alternativas</h2>
                     <div class="step-description">Liste as opções disponíveis para a decisão</div>
                 </div>
 
@@ -252,7 +248,7 @@
             <div class="step" id="step4">
                 <div class="step-header">
                     <div class="step-number-badge">Passo 3</div>
-                    <div class="step-title">Atribuição de Scores</div>
+                    <h2 class="step-title">Atribuição de Scores</h2>
                     <div class="step-description">Avalie o desempenho de cada alternativa em cada critério</div>
                 </div>
 
@@ -285,7 +281,7 @@
             <div class="step" id="step5">
                 <div class="step-header">
                     <div class="step-number-badge">Passo 4</div>
-                    <div class="step-title">Atribuição de Pesos</div>
+                    <h2 class="step-title">Atribuição de Pesos</h2>
                     <div class="step-description">Determine a importância relativa de cada critério</div>
                 </div>
 
@@ -321,7 +317,7 @@
             <div class="step" id="step6">
                 <div class="step-header">
                     <div class="step-number-badge">Passo 5</div>
-                    <div class="step-title">Resultado Final</div>
+                    <h2 class="step-title">Resultado Final</h2>
                     <div class="step-description">Ranking das alternativas e análise completa da Matriz de Preferência</div>
                 </div>
 
@@ -346,10 +342,10 @@
          MODAL DE SUGESTÕES DA IA
          ===================================================== -->
     <div class="modal-overlay" id="aiSuggestionModal">
-        <div class="modal-content">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle" aria-describedby="aiModalDescription">
             <div class="modal-header">
-                <h3>🤖 Sugestões Inteligentes</h3>
-                <p>O assistente analisou o problema e sugeriu os seguintes critérios para sua decisão. Clique para selecionar/deselecionar.</p>
+                <h3 id="aiModalTitle">🤖 Sugestões Inteligentes</h3>
+                <p id="aiModalDescription">O assistente analisou o problema e sugeriu os seguintes critérios para sua decisão. Clique para selecionar/deselecionar.</p>
             </div>
             <div class="modal-body" id="aiCriteriaContainer">
                 <!-- Chips de critérios serão inseridos aqui dinamicamente -->
@@ -369,13 +365,13 @@
             </div>
             <div class="footer-section developers">
                 <h4>Desenvolvedores</h4>
-                <p><a href="https://www.linkedin.com/in/opedroalves/" target="_blank">Pedro Henrique Alves de Araujo Silva</a></p>
-                <p><a href="https://www.linkedin.com/in/laura-rieko-imai/" target="_blank">Laura Rieko Marçal Imai</a></p>
+                <p><a href="https://www.linkedin.com/in/opedroalves/" target="_blank" rel="noopener">Pedro Henrique Alves de Araujo Silva</a></p>
+                <p><a href="https://www.linkedin.com/in/laura-rieko-imai/" target="_blank" rel="noopener">Laura Rieko Marçal Imai</a></p>
             </div>
             <div class="footer-section links">
                 <h4>Links Úteis</h4>
-                <p><a href="https://github.com/pedrohaas/matriz-de-preferencia" target="_blank">Código Fonte no GitHub</a></p>
-                <p><a href="https://github.com/pedrohaas/matriz-de-preferencia/blob/main/LICENSE" target="_blank">Licença MIT</a></p>
+                <p><a href="https://github.com/pedrohaas/matriz-de-preferencia" target="_blank" rel="noopener">Código Fonte no GitHub</a></p>
+                <p><a href="https://github.com/pedrohaas/matriz-de-preferencia/blob/main/LICENSE" target="_blank" rel="noopener">Licença MIT</a></p>
             </div>
         </div>
         <div class="footer-bottom">

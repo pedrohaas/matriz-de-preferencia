@@ -84,7 +84,7 @@ async function saveResultsImage() {
     const weightItems = clone.querySelectorAll('.weight-control-item');
     weightItems.forEach((item) => {
         const slider = item.querySelector('input[type="range"]');
-        const label  = item.querySelector('div[style*="min-width: 150px"]');
+        const label  = item.querySelector('.weight-control-label');
         if (slider && label) {
             const pct = parseFloat(slider.value).toFixed(1);
             item.innerHTML = `

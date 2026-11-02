@@ -48,7 +48,7 @@ function renderManagementColumn(title, items, removeAction, borderColor) {
         <div style="display:flex; align-items:center; justify-content:space-between; background:white; padding:8px 10px; border-radius:6px; border-left:3px solid var(${borderColor}); font-size:0.88rem;">
             <span>${index + 1}. ${escapeHtml(item.name)}</span>
             ${items.length > 2
-                ? `<button class="remove-btn" data-action="${removeAction}" data-id="${item.id}" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>`
+                ? `<button class="remove-btn" data-action="${removeAction}" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.name)}" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>`
                 : '<span style="font-size:0.72rem; color:var(--text-soft);">mín.</span>'}
         </div>
     `).join('');
@@ -64,11 +64,11 @@ function renderManagementColumn(title, items, removeAction, borderColor) {
 function renderManagementPanel() {
     return `
         <div class="management-panel" style="margin-bottom:1.25rem;">
-            <button data-action="toggleManagementPanel" class="btn btn-secondary btn-small" style="font-size:0.82rem; padding:6px 14px;">
+            <button type="button" data-action="toggleManagementPanel" aria-expanded="false" aria-controls="managementPanelContent" class="btn btn-secondary btn-small" style="font-size:0.82rem; padding:6px 14px;">
                 ⚙️ Gerenciar Critérios e Alternativas
             </button>
             <div id="managementPanelContent" style="display:none; margin-top:12px; padding:16px; background:var(--white); border:2px solid var(--border); border-radius:var(--radius-md);">
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div class="management-grid">
                     ${renderManagementColumn('📋 Critérios', state.criteria, 'removeCriterionFromStep3', '--secondary')}
                     ${renderManagementColumn('🏷️ Alternativas', state.alternatives, 'removeAlternativeFromStep3', '--primary')}
                 </div>
@@ -84,9 +84,9 @@ function renderAlternativeCards(action, excludedId = null) {
     const cards = state.alternatives
         .filter(alternative => alternative.id !== excludedId)
         .map(alternative => `
-            <div class="alternative-card" data-action="${action}" data-id="${alternative.id}">
+            <button type="button" class="alternative-card" data-action="${action}" data-id="${alternative.id}">
                 ${escapeHtml(alternative.name)}
-            </div>
+            </button>
         `).join('');
     return `<div class="alternatives-grid">${cards}</div>`;
 }
@@ -111,8 +111,8 @@ function renderBestScoreInput(entry) {
                 Atribua um score máximo (entre 0 e 10) para <strong>${best}</strong>, que representa o melhor desempenho neste critério.
             </p>
             <div class="form-group">
-                <label>Score para "${best}" (0 a 10):</label>
-                <input type="number" id="bestScore" min="0" max="10" placeholder="Ex: 10" step="0.1">
+                <label for="bestScore">Score para "${best}" (0 a 10):</label>
+                <input type="number" id="bestScore" data-enter="setBestScore" min="0" max="10" placeholder="Ex: 10" step="0.1">
                 <button class="btn btn-primary" style="margin-top: 8px;" data-action="setBestScore">Confirmar</button>
             </div>
         </div>
@@ -141,8 +141,8 @@ function renderWorstScoreInput(entry) {
                 Atribua um score mínimo (entre 0 e ${entry.bestScore}) para <strong>${worst}</strong>.
             </p>
             <div class="form-group">
-                <label>Score para "${worst}" (0 a ${entry.bestScore}):</label>
-                <input type="number" id="worstScore" min="0" max="${entry.bestScore}" placeholder="Ex: 0" step="0.1">
+                <label for="worstScore">Score para "${worst}" (0 a ${entry.bestScore}):</label>
+                <input type="number" id="worstScore" data-enter="setWorstScore" min="0" max="${entry.bestScore}" placeholder="Ex: 0" step="0.1">
                 <button class="btn btn-primary" style="margin-top: 8px;" data-action="setWorstScore">Confirmar</button>
             </div>
         </div>
@@ -161,8 +161,8 @@ function renderPositionScoreInput(entry) {
             <div class="success-message">✅ Posição selecionada: Entre "${escapeHtml(alternativeName(position.higher))}" e "${escapeHtml(alternativeName(position.lower))}"</div>
             <h4>Defina o score para "${alternative}":</h4>
             <div class="form-group">
-                <label>Score para "${alternative}" (${minScore} - ${maxScore}):</label>
-                <input type="number" id="positionScore" min="${minScore}" max="${maxScore}" placeholder="Ex: ${averageScore}" step="0.1" value="${averageScore}">
+                <label for="positionScore">Score para "${alternative}" (${minScore} - ${maxScore}):</label>
+                <input type="number" id="positionScore" data-enter="setPositionBetweenScore" min="${minScore}" max="${maxScore}" placeholder="Ex: ${averageScore}" step="0.1" value="${averageScore}">
                 <button class="btn btn-primary" data-action="setPositionBetweenScore">Definir Score</button>
             </div>
         </div>
@@ -196,10 +196,10 @@ function renderPositionOptions(alternativeId, ranked) {
         const lower = ranked[i + 1];
         if (higher.score !== lower.score) {
             options += `
-                <div class="alternative-card" data-action="selectPositionBetween" data-alternative="${alternativeId}" data-higher="${higher.id}" data-lower="${lower.id}">
-                    <div class="position-label">📊 Entre "${escapeHtml(higher.name)}" e "${escapeHtml(lower.name)}" </div>
-                    <div class="position-description">Range: ${lower.score} - ${higher.score}</div>
-                </div>
+                <button type="button" class="alternative-card" data-action="selectPositionBetween" data-alternative="${alternativeId}" data-higher="${higher.id}" data-lower="${lower.id}">
+                    <span class="position-label">📊 Entre "${escapeHtml(higher.name)}" e "${escapeHtml(lower.name)}" </span>
+                    <span class="position-description">Range: ${lower.score} - ${higher.score}</span>
+                </button>
             `;
         }
     }
@@ -207,10 +207,10 @@ function renderPositionOptions(alternativeId, ranked) {
     // No mesmo nível de uma alternativa já avaliada
     ranked.forEach(item => {
         options += `
-            <div class="alternative-card" data-action="setSameLevel" data-alternative="${alternativeId}" data-reference="${item.id}">
-                <div class="position-label">⚖️ Mesmo nível de "${escapeHtml(item.name)}"</div>
-                <div class="position-description">Score igual: ${item.score}</div>
-            </div>
+            <button type="button" class="alternative-card" data-action="setSameLevel" data-alternative="${alternativeId}" data-reference="${item.id}">
+                <span class="position-label">⚖️ Mesmo nível de "${escapeHtml(item.name)}"</span>
+                <span class="position-description">Score igual: ${item.score}</span>
+            </button>
         `;
     });
 
@@ -326,6 +326,20 @@ function showComparisonForCriterion() {
     document.getElementById('comparisonInterface').innerHTML = html;
 }
 
+// Redesenha após uma ação e leva o foco ao próximo controle, que o redesenho substituiu
+function refreshComparison() {
+    showComparisonForCriterion();
+
+    const container = document.getElementById('comparisonInterface');
+    const scoreInput = container.querySelector('#bestScore, #worstScore, #positionScore');
+    if (scoreInput) {
+        scoreInput.focus();
+        scoreInput.select();
+        return;
+    }
+    container.querySelector('.alternative-card, button.btn-primary, [data-action="resetCurrentCriterion"]')?.focus();
+}
+
 function readScoreInput(id) {
     return parseFloat(document.getElementById(id).value);
 }
@@ -334,7 +348,7 @@ function setBestScore() {
     const score = readScoreInput('bestScore');
     if (score >= 0 && score <= 10) {
         currentEntry().bestScore = score;
-        showComparisonForCriterion();
+        refreshComparison();
     } else {
         showError('Score deve estar entre 0 e 10.');
     }
@@ -346,7 +360,7 @@ function setWorstScore() {
     if (score >= 0 && score <= entry.bestScore) {
         entry.worstScore = score;
         entry.scores = entry.scores || {};
-        showComparisonForCriterion();
+        refreshComparison();
     } else {
         showError(`Score deve estar entre 0 e ${entry.bestScore}.`);
     }
@@ -362,7 +376,7 @@ function setPositionBetweenScore() {
     if (score >= minScore && score <= maxScore) {
         entry.scores[position.alternative] = score;
         delete entry.selectedPosition;
-        showComparisonForCriterion();
+        refreshComparison();
     } else {
         showError(`Score deve estar entre ${minScore} e ${maxScore}.`);
     }
@@ -370,7 +384,7 @@ function setPositionBetweenScore() {
 
 function resetCurrentCriterion() {
     state.comparisonData[currentCriterionId()] = {};
-    showComparisonForCriterion();
+    refreshComparison();
 }
 
 function validateAllComparisons() {
@@ -396,7 +410,7 @@ function removeCriterionFromStep3(id) {
     state.currentCriterionIndex = Math.min(state.currentCriterionIndex, state.criteria.length - 1);
 
     showSuccess(`Critério "${removedName}" removido com sucesso.`);
-    showComparisonForCriterion();
+    refreshComparison();
 }
 
 function removeAlternativeFromStep3(id) {
@@ -413,27 +427,29 @@ function removeAlternativeFromStep3(id) {
     removeAlternative(id);
 
     showSuccess(`Alternativa "${removedName}" removida com sucesso.`);
-    showComparisonForCriterion();
+    refreshComparison();
 }
 
 registerActions({
     goToCriterion: el => {
         state.currentCriterionIndex = criterionIds().indexOf(el.dataset.id);
-        showComparisonForCriterion();
+        refreshComparison();
     },
-    toggleManagementPanel: () => {
+    toggleManagementPanel: el => {
         const panel = document.getElementById('managementPanelContent');
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        const opening = panel.style.display === 'none';
+        panel.style.display = opening ? 'block' : 'none';
+        el.setAttribute('aria-expanded', String(opening));
     },
     removeCriterionFromStep3: el => removeCriterionFromStep3(el.dataset.id),
     removeAlternativeFromStep3: el => removeAlternativeFromStep3(el.dataset.id),
     selectBest: el => {
         currentEntry().best = el.dataset.id;
-        showComparisonForCriterion();
+        refreshComparison();
     },
     selectWorst: el => {
         currentEntry().worst = el.dataset.id;
-        showComparisonForCriterion();
+        refreshComparison();
     },
     setBestScore,
     setWorstScore,
@@ -441,12 +457,12 @@ registerActions({
     selectPositionBetween: el => {
         const { alternative, higher, lower } = el.dataset;
         currentEntry().selectedPosition = { alternative, higher, lower };
-        showComparisonForCriterion();
+        refreshComparison();
     },
     setSameLevel: el => {
         const entry = currentEntry();
         entry.scores[el.dataset.alternative] = getScore(entry, el.dataset.reference);
-        showComparisonForCriterion();
+        refreshComparison();
     },
     resetCurrentCriterion,
 });

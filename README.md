@@ -36,10 +36,13 @@ Através de uma interface passo a passo, o usuário divide o problema em partes 
 - **Wizard Passo a Passo**: Processo guiado estruturado em passos claros (Apresentação, Critérios, Alternativas, Scores, Pesos e Resultado).
 - **Avaliação de Desempenho Visual (Scores)**: Sistema inteligente que solicita a definição da melhor alternativa (âncora superior), da pior alternativa (âncora inferior) e o posicionamento das demais em relação a elas.
 - **Ajuste Dinâmico de Pesos**: Na tela de resultados, é possível utilizar _sliders_ interativos para alterar o peso dos critérios em tempo real e visualizar imediatamente como isso afeta o ranking, com suporte opcional a **Normalização Automática**.
+- **Alternativas Dominadas**: O resultado aponta alternativas que nenhuma combinação de pesos pode colocar à frente de outra.
+- **Análise de Sensibilidade**: Mostra, para cada critério, a partir de qual peso a alternativa vencedora muda e qual passa à frente, variando um peso por vez.
 - **Salvamento Automático**: Cada alteração é salva no `localStorage` do navegador. A seção "Análises salvas", na tela inicial, permite retomar uma análise de onde parou ou excluí-la.
 - **Exportação de Resultados**:
   - Salvar o relatório completo (matriz e ranking) como **Imagem (PNG)**.
   - Exportar os dados da decisão para **JSON**, que pode ser **importado** de volta, inclusive em outro navegador. Os ajustes feitos nos sliders não são importados: os pesos são recalculados pelo método.
+- **Acessível e Responsiva**: Funciona por teclado, com rótulos para leitores de tela, e se adapta a telas de celular.
 - **Sugestões Inteligentes com IA**: Integração direta com a API do Google Gemini para sugerir critérios relevantes com base no título e na descrição do problema de decisão.
 
 ---

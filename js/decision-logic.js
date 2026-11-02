@@ -9,15 +9,21 @@ function showAiModal(suggestions) {
         container.innerHTML = '';
 
         suggestions.forEach(suggestion => {
-            const chip = document.createElement('div');
+            const chip = document.createElement('button');
+            chip.type = 'button';
             chip.className = 'ai-chip selected';
             chip.textContent = suggestion.trim();
-            chip.onclick = () => chip.classList.toggle('selected');
+            chip.setAttribute('aria-pressed', 'true');
+            chip.onclick = () => {
+                const selected = chip.classList.toggle('selected');
+                chip.setAttribute('aria-pressed', String(selected));
+            };
             container.appendChild(chip);
         });
 
         aiModalResolver = resolve;
         modal.classList.add('active');
+        container.querySelector('.ai-chip')?.focus();
     });
 }
 
@@ -30,6 +36,27 @@ function closeAiModal(accept) {
     }
     aiModalResolver = null;
 }
+
+// Com o modal aberto, Esc equivale a ignorar e Tab não sai dele
+document.addEventListener('keydown', event => {
+    const modal = document.getElementById('aiSuggestionModal');
+    if (!modal.classList.contains('active')) return;
+
+    if (event.key === 'Escape') {
+        closeAiModal(false);
+    } else if (event.key === 'Tab') {
+        const buttons = [...modal.querySelectorAll('button')];
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+});
 
 // Mostra um passo e prepara a interface dele, sem alterar os dados já informados
 function showStep(step) {
@@ -51,12 +78,23 @@ function showStep(step) {
 
     updateProgressBar();
     updateContextBanner();
+    moveToStepStart(step);
     if (step === 1) {
         flushAutoSave();
         renderSavedAnalyses();
     } else {
         scheduleAutoSave();
     }
+}
+
+// Ao trocar de passo, leva a leitura e o foco do teclado para o início dele
+function moveToStepStart(step) {
+    const stepElement = document.getElementById(`step${step}`);
+    if (stepElement.getBoundingClientRect().top < 0) stepElement.scrollIntoView();
+
+    const title = stepElement.querySelector('.step-title');
+    title.setAttribute('tabindex', '-1');
+    title.focus({ preventScroll: true });
 }
 
 // Consulta a IA ao sair da apresentação, se configurada e ainda sem critérios.
@@ -164,6 +202,11 @@ function updateProgressBar() {
         dot.classList.toggle('active', i === activeIndex);
         item.classList.toggle('completed', i < activeIndex);
         item.classList.toggle('active', i === activeIndex);
+        if (i === activeIndex) {
+            item.setAttribute('aria-current', 'step');
+        } else {
+            item.removeAttribute('aria-current');
+        }
         connector?.classList.toggle('completed', i < activeIndex);
     }
 }
@@ -182,11 +225,16 @@ function updateContextBanner() {
     banner.classList.add('visible');
 
     // Recolhe a configuração da API ao sair da apresentação
-    document.getElementById('apiConfigSection').classList.add('collapsed');
+    setApiConfigCollapsed(true);
+}
+
+function setApiConfigCollapsed(collapsed) {
+    document.getElementById('apiConfigSection').classList.toggle('collapsed', collapsed);
+    document.getElementById('apiToggleBtn').setAttribute('aria-expanded', String(!collapsed));
 }
 
 function toggleApiConfig() {
-    document.getElementById('apiConfigSection').classList.toggle('collapsed');
+    setApiConfigCollapsed(!document.getElementById('apiConfigSection').classList.contains('collapsed'));
 }
 
 // ---- Resultados ----
@@ -241,6 +289,80 @@ function getResultsMethodLabel() {
     return getWeightingMethodName() + (adjusted ? ' (pesos ajustados manualmente)' : '');
 }
 
+function renderDominanceNotice() {
+    const dominated = findDominatedAlternatives(criterionIds(), alternativeIds(), state.comparisonData);
+    if (dominated.length === 0) return '';
+
+    const items = dominated.map(({ id, dominatedBy }) => {
+        const names = dominatedBy.map(other => `<strong>${escapeHtml(alternativeName(other))}</strong>`).join(', ');
+        return `<li><strong>${escapeHtml(alternativeName(id))}</strong> é dominada por ${names}</li>`;
+    }).join('');
+
+    return `
+        <div class="insight-box insight-warning" id="dominanceNotice">
+            <h4>⚠️ Alternativas dominadas</h4>
+            <p>Nenhuma combinação de pesos pode colocá-las à frente da alternativa que as domina, que é pelo menos tão boa em todos os critérios e melhor em algum. Podem ser eliminadas da análise.</p>
+            <ul>${items}</ul>
+        </div>
+    `;
+}
+
+const formatPercent = weight => `${(weight * 100).toFixed(1)}%`;
+
+function renderSensitivityLimit(limit) {
+    if (!limit) return '<span class="sensitivity-none">Não muda</span>';
+    return `${formatPercent(limit.weight)} <small>→ ${escapeHtml(alternativeName(limit.challenger))}</small>`;
+}
+
+function renderSensitivity() {
+    const analysis = analyzeSensitivity(criterionIds(), alternativeIds(), state.comparisonData, state.weights);
+
+    if (analysis.status === 'noWeights') {
+        return '<p>Defina pelo menos um peso maior que zero para analisar a sensibilidade.</p>';
+    }
+    if (analysis.status === 'tie') {
+        return '<p>Há empate no 1º lugar: não existe uma única vencedora para analisar. Ajuste os pesos ou os scores para desempatar.</p>';
+    }
+
+    const winner = escapeHtml(alternativeName(analysis.winner));
+    const summary = analysis.closest
+        ? `<p>A menor mudança que troca a vencedora <strong>${winner}</strong> é levar <strong>${escapeHtml(criterionName(analysis.closest.id))}</strong> de ${formatPercent(analysis.closest.from)} para ${formatPercent(analysis.closest.to)} (${(analysis.closest.change * 100).toFixed(1)} pontos percentuais): ${escapeHtml(alternativeName(analysis.closest.challenger))} passa à frente.</p>`
+        : `<p><strong>${winner}</strong> continua em 1º lugar qualquer que seja o peso de cada critério, alterando um de cada vez.</p>`;
+
+    const rows = analysis.criteria.map(criterion => `
+        <tr>
+            <td>${escapeHtml(criterionName(criterion.id))}</td>
+            <td>${formatPercent(criterion.weight)}</td>
+            <td>${renderSensitivityLimit(criterion.low)}</td>
+            <td>${renderSensitivityLimit(criterion.high)}</td>
+        </tr>
+    `).join('');
+
+    const total = criterionIds().reduce((sum, id) => sum + state.weights[id], 0);
+    const normalizationNote = Math.abs(total - 1) < 0.001
+        ? ''
+        : '<p class="sensitivity-note">Os pesos atuais não somam 100%: esta análise usa os valores normalizados.</p>';
+
+    return `
+        ${summary}
+        <div class="table-scroll">
+            <table class="matrix-table sensitivity-table">
+                <thead>
+                    <tr>
+                        <th>Critério</th>
+                        <th>Peso atual</th>
+                        <th>Vencedora muda abaixo de</th>
+                        <th>Vencedora muda acima de</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+        ${normalizationNote}
+        <p class="sensitivity-note">Cada linha varia um peso e mantém a proporção entre os demais. A seta indica qual alternativa passa à frente.</p>
+    `;
+}
+
 function displayResults() {
     const { finals, sortedIds } = getResults();
 
@@ -248,12 +370,12 @@ function displayResults() {
         const percentage = (state.weights[criterion.id] * 100).toFixed(1);
         return `
             <div class="weight-control-item" style="display: flex; align-items: center; gap: 15px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #ddd;">
-                <div style="min-width: 150px; font-weight: 500;">${escapeHtml(criterion.name)}</div>
+                <div class="weight-control-label">${escapeHtml(criterion.name)}</div>
                 <div style="flex-grow: 1; display: flex; align-items: center; gap: 10px;">
-                    <input type="range" id="weight-${criterion.id}" min="0" max="100" value="${percentage}" step="0.1"
+                    <input type="range" id="weight-${criterion.id}" aria-label="Peso de ${escapeHtml(criterion.name)}" min="0" max="100" value="${percentage}" step="0.1"
                            style="flex-grow: 1;" data-input="updateWeightFromControl" data-id="${criterion.id}" />
                     <div style="min-width: 80px; display: flex; align-items: center; gap: 5px;">
-                        <input type="number" id="weight-input-${criterion.id}" min="0" max="100" step="0.1" value="${percentage}"
+                        <input type="number" id="weight-input-${criterion.id}" aria-label="Peso de ${escapeHtml(criterion.name)} em porcentagem" min="0" max="100" step="0.1" value="${percentage}"
                                style="width: 60px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; text-align: center;"
                                data-change="updateWeightFromControl" data-id="${criterion.id}" />
                         <span style="font-size: 0.9em; color: #666;">%</span>
@@ -272,6 +394,8 @@ function displayResults() {
             <h3>🏆 Ranking Final das Alternativas</h3>
             <ul class="ranking" id="dynamicRanking">${renderRankingItems(finals, sortedIds)}</ul>
         </div>
+
+        ${renderDominanceNotice()}
 
         <!-- Painel de Ajuste Dinâmico de Pesos -->
         <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
@@ -317,6 +441,11 @@ function displayResults() {
                     <tbody id="matrixBody">${renderMatrixRows(finals, sortedIds)}</tbody>
                 </table>
             </div>
+        </div>
+
+        <div class="insight-box" style="margin-top: 30px;">
+            <h3>🔎 Análise de Sensibilidade</h3>
+            <div id="sensitivityPanel">${renderSensitivity()}</div>
         </div>
 
         <div style="margin-top: 30px;">
@@ -401,6 +530,7 @@ function updateResultsDisplay() {
     document.getElementById('matrixBody').innerHTML = renderMatrixRows(finals, sortedIds);
     document.getElementById('topAlternative').textContent = getRecommendationLabel(finals, sortedIds);
     document.getElementById('resultsMethod').textContent = getResultsMethodLabel();
+    document.getElementById('sensitivityPanel').innerHTML = renderSensitivity();
 }
 
 function getWeightingMethodName() {

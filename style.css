@@ -54,7 +54,8 @@ body {
     background: var(--surface);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    overflow: hidden;
+    /* clip, e não hidden: hidden impediria o banner de contexto de fixar ao rolar a página */
+    overflow: clip;
 }
 
 /* ---- HEADER ---- */
@@ -62,9 +63,35 @@ body {
     background: #002943;
     color: #ffffff;
     padding: 2rem 2rem;
-    text-align: center;
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+}
+
+.header-logo {
+    width: 216px;
+    height: 216px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(21,53,87,0.18);
+    position: relative;
+    z-index: 1;
+}
+
+.header-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.header-text {
+    min-width: 0;
+    text-align: left;
 }
 
 .header::before {
@@ -88,7 +115,7 @@ body {
 .header h1 {
     font-size: 2.2rem;
     font-weight: 700;
-    margin-bottom: 0.4rem;
+    margin: 0;
     letter-spacing: -0.5px;
     position: relative;
     z-index: 1;
@@ -111,15 +138,30 @@ body {
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 0;
     overflow-x: auto;
 }
+
+/* Centraliza sem cortar o início quando a barra não couber na tela */
+.step-progress > :first-child { margin-left: auto; }
+.step-progress > :last-child { margin-right: auto; }
 
 .step-progress-item {
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.step-progress-item:hover .step-dot {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px rgba(37,150,190,0.15);
 }
 
 .step-dot {
@@ -166,6 +208,7 @@ body {
 }
 
 .step-label {
+    display: block;
     font-size: 0.68rem;
     color: var(--text-soft);
     margin-top: 4px;
@@ -222,16 +265,24 @@ body {
     display: flex;
 }
 
+.context-banner > div {
+    min-width: 0;
+}
+
 .context-banner strong {
     color: var(--primary);
-    white-space: nowrap;
     margin-right: 4px;
+    overflow-wrap: anywhere;
 }
 
 .context-banner .context-desc {
     color: var(--text-soft);
     font-size: 0.82rem;
     margin-top: 2px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
 }
 
 /* ---- API CONFIG ---- */
@@ -284,9 +335,9 @@ body {
 }
 
 .api-config-body {
-    max-height: 300px;
+    max-height: 600px;
     overflow: hidden;
-    transition: max-height 0.35s ease, opacity 0.3s ease;
+    transition: max-height 0.35s ease, opacity 0.3s ease, visibility 0.35s;
     opacity: 1;
     padding: 0 2rem 1rem;
 }
@@ -294,6 +345,8 @@ body {
 .api-config.collapsed .api-config-body {
     max-height: 0;
     opacity: 0;
+    /* Tira os campos recolhidos da navegação por teclado */
+    visibility: hidden;
     padding-bottom: 0;
 }
 
@@ -395,6 +448,8 @@ body {
 .step {
     display: none;
     animation: fadeUp 0.4s ease-out;
+    /* Espaço para o banner de contexto fixo ao rolar até o início do passo */
+    scroll-margin-top: 90px;
 }
 
 .step.active {
@@ -426,6 +481,10 @@ body {
     margin-bottom: 6px;
     letter-spacing: 0.5px;
     text-transform: uppercase;
+}
+
+.step-title:focus {
+    outline: none;
 }
 
 .step-title {
@@ -653,17 +712,6 @@ textarea:focus {
     color: white;
 }
 
-/* Progress bar clickable items */
-.step-progress-item[onclick] {
-    cursor: pointer;
-    transition: transform 0.15s ease;
-}
-
-.step-progress-item[onclick]:hover .step-dot {
-    transform: scale(1.15);
-    box-shadow: 0 0 0 3px rgba(37,150,190,0.15);
-}
-
 /* ---- NAVIGATION ---- */
 .navigation {
     display: flex;
@@ -720,6 +768,9 @@ textarea:focus {
 }
 
 .alternative-card {
+    display: block;
+    width: 100%;
+    font: inherit;
     background: white;
     padding: 1.2rem;
     border-radius: var(--radius-md);
@@ -752,6 +803,7 @@ textarea:focus {
 }
 
 .position-label {
+    display: block;
     font-weight: 600;
     font-size: 0.9rem;
     margin-bottom: 4px;
@@ -759,6 +811,7 @@ textarea:focus {
 }
 
 .position-description {
+    display: block;
     font-size: 0.8rem;
     color: var(--text-soft);
 }
@@ -878,6 +931,59 @@ textarea:focus {
     font-weight: 600;
 }
 
+/* ---- PAINÉIS DE ANÁLISE DO RESULTADO ---- */
+.insight-box {
+    padding: 20px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+
+.insight-box h3,
+.insight-box h4 {
+    margin-bottom: 10px;
+    color: var(--primary);
+}
+
+.insight-box p {
+    margin-bottom: 10px;
+    font-size: 0.92rem;
+}
+
+.insight-warning {
+    margin-top: 16px;
+    background: var(--warning-bg);
+    border-color: #f0c040;
+}
+
+.insight-warning ul {
+    margin-left: 18px;
+    font-size: 0.92rem;
+}
+
+.sensitivity-table td:first-child {
+    text-align: left;
+}
+
+.sensitivity-table small {
+    color: var(--text-soft);
+    white-space: nowrap;
+}
+
+.sensitivity-none {
+    color: var(--text-soft);
+}
+
+.insight-box p.sensitivity-note {
+    color: var(--text-soft);
+    font-size: 0.8rem;
+    margin: 6px 0 0;
+}
+
+.table-scroll {
+    overflow-x: auto;
+}
+
 /* ---- MATRIX TABLE ---- */
 .matrix-table {
     width: 100%;
@@ -922,6 +1028,12 @@ textarea:focus {
 }
 
 .weight-control-item:last-child { margin-bottom: 0; }
+
+.weight-control-label {
+    min-width: 150px;
+    font-weight: 500;
+    overflow-wrap: anywhere;
+}
 
 .weight-control-item input[type="range"] {
     flex: 1;
@@ -1149,6 +1261,7 @@ footer {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(15, 34, 53, 0.4);
+    visibility: hidden;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     z-index: 9999;
@@ -1157,12 +1270,14 @@ footer {
     justify-content: center;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.35s ease;
+    transition: opacity 0.35s ease, visibility 0s linear 0.35s;
 }
 
 .modal-overlay.active {
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
+    transition-delay: 0s;
 }
 
 .modal-content {
@@ -1172,7 +1287,8 @@ footer {
     border-radius: var(--radius-lg);
     box-shadow: 0 20px 60px rgba(0,0,0,0.25);
     transform: translateY(20px) scale(0.95);
-    transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    /* Sem "all": animar a visibility herdada do modal impediria focar os itens ao abrir */
+    transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.2);
 }
@@ -1213,6 +1329,7 @@ footer {
 
 /* Chips de Critérios */
 .ai-chip {
+    font-family: inherit;
     background: var(--bg);
     border: 1px solid var(--border);
     padding: 8px 14px;
@@ -1221,7 +1338,7 @@ footer {
     font-weight: 500;
     color: var(--text-dark);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     user-select: none;
     display: flex;
     align-items: center;
@@ -1260,12 +1377,75 @@ footer {
     gap: 12px;
 }
 
+/* ---- ACESSIBILIDADE ---- */
+button:focus-visible,
+a:focus-visible,
+input[type="range"]:focus-visible,
+input[type="checkbox"]:focus-visible {
+    outline: 3px solid var(--secondary);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}
+
 /* ---- RESPONSIVE ---- */
+.management-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
 @media (max-width: 640px) {
     body { padding: 12px 8px; }
     .content { padding: 1.5rem 1.25rem; }
-    .header h1 { font-size: 1.6rem; }
-    .api-input-group { flex-direction: column; }
-    .step-progress { gap: 0; padding: 1rem; }
-    .step-connector { width: 20px; }
+
+    .header {
+        flex-direction: column;
+        gap: 12px;
+        padding: 1.25rem;
+    }
+    .header-logo { width: 96px; height: 96px; }
+    .header-text { text-align: center; }
+    .header h1 { font-size: 1.5rem; }
+    .header p { font-size: 0.9rem; }
+
+    .step-progress { padding: 0.8rem 0.75rem; }
+    .step-connector { width: 12px; }
+    .step-dot { width: 28px; height: 28px; }
+    /* Só o passo atual mostra o nome; os demais mantêm o nome para leitores de tela */
+    .step-label { display: none; }
+    .step-progress-item.active .step-label { display: block; max-width: none; white-space: nowrap; }
+
+    .context-banner { padding: 0.6rem 1rem; }
+    .context-banner .context-desc { display: none; }
+
+    .api-config-header, .api-config-body { padding-left: 1rem; padding-right: 1rem; }
+    .api-input-group { flex-direction: column; align-items: stretch; }
+    .api-input-group .btn { justify-content: center; }
+
+    /* 16px evita o zoom automático do iOS ao focar um campo */
+    input[type="text"], input[type="number"], input[type="password"], select, textarea { font-size: 16px; }
+
+    .navigation { flex-wrap: wrap; gap: 10px; }
+    .navigation > div:empty { display: none; }
+    .navigation > div { order: 3; width: 100%; text-align: center; }
+    .navigation > .btn:last-child { margin-left: auto; }
+
+    .management-grid { grid-template-columns: 1fr; }
+    .item { flex-wrap: wrap; gap: 8px; }
+    .item > span { min-width: 0; overflow-wrap: anywhere; }
+    .weight-control-item { flex-wrap: wrap; }
+    .weight-control-label { min-width: 0; width: 100%; }
+    .results { padding: 1rem; }
+    .insight-box { padding: 14px; }
+    .results-export-actions { flex-wrap: wrap; }
+
+    .toast-notification { left: 12px; right: 12px; top: 12px; max-width: none; }
+    .modal-footer { flex-wrap: wrap; }
 }

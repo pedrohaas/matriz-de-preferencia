@@ -162,8 +162,8 @@ function renderSavedAnalyses() {
                     <small>Salva em ${escapeHtml(dateLabel)} · Etapa: ${escapeHtml(stepName)} · ${analysis?.criteria?.length ?? 0} critério(s), ${analysis?.alternatives?.length ?? 0} alternativa(s)</small>
                 </div>
                 <div class="saved-analysis-actions">
-                    ${isCurrent ? '' : `<button class="btn btn-primary btn-small" data-action="openAnalysis" data-id="${escapeHtml(id)}">Abrir</button>`}
-                    <button class="remove-btn" data-action="deleteAnalysis" data-id="${escapeHtml(id)}">Excluir</button>
+                    ${isCurrent ? '' : `<button class="btn btn-primary btn-small" data-action="openAnalysis" data-id="${escapeHtml(id)}" aria-label="Abrir ${escapeHtml(analysis?.problemTitle ?? 'Sem título')}">Abrir</button>`}
+                    <button class="remove-btn" data-action="deleteAnalysis" data-id="${escapeHtml(id)}" aria-label="Excluir ${escapeHtml(analysis?.problemTitle ?? 'Sem título')}">Excluir</button>
                 </div>
             </div>
         `;

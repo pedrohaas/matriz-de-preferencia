@@ -109,17 +109,20 @@ function startEditingItem(kind, id) {
     input.type = 'text';
     input.value = item.name;
     input.className = 'edit-inline-input';
+    input.setAttribute('aria-label', `Novo nome de ${item.name}`);
     input.style.cssText = 'flex:1; padding:6px 10px; border:2px solid var(--secondary); border-radius:6px; font-size:0.92rem; font-family:inherit; outline:none;';
 
-    const createButton = (className, label) => {
+    const createButton = (className, label, description) => {
         const button = document.createElement('button');
+        button.type = 'button';
         button.className = `btn ${className} btn-small`;
         button.textContent = label;
+        button.setAttribute('aria-label', description);
         button.style.cssText = 'padding:6px 12px; min-width:auto;';
         return button;
     };
-    const saveButton = createButton('btn-primary', '✓');
-    const cancelButton = createButton('btn-secondary', '✕');
+    const saveButton = createButton('btn-primary', '✓', 'Salvar nome');
+    const cancelButton = createButton('btn-secondary', '✕', 'Cancelar edição');
 
     const confirmEdit = () => {
         const newName = input.value.trim();
@@ -166,8 +169,8 @@ function renderItemList(kind) {
         <div class="item" id="${kind}-item-${item.id}">
             <span class="item-name-text"><strong>${index + 1}.</strong> ${escapeHtml(item.name)}</span>
             <div class="item-actions" style="display:flex; gap:6px;">
-                <button class="edit-btn" data-action="editItem" data-kind="${kind}" data-id="${item.id}">✏️ Editar</button>
-                <button class="remove-btn" data-action="removeItem" data-kind="${kind}" data-id="${item.id}">Remover</button>
+                <button class="edit-btn" data-action="editItem" data-kind="${kind}" data-id="${item.id}" aria-label="Editar ${escapeHtml(item.name)}">✏️ Editar</button>
+                <button class="remove-btn" data-action="removeItem" data-kind="${kind}" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.name)}">Remover</button>
             </div>
         </div>
     `).join('');
