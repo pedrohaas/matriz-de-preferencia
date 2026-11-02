@@ -52,9 +52,6 @@ function getApiKey() {
 }
 
 async function sugerirCritériosGemini(titulo, descricao) {
-    console.log('Iniciando sugestão de critérios...');
-    console.log('Título:', titulo);
-    console.log('Descrição:', descricao);
     
     const API_KEY = getApiKey();
     
@@ -72,7 +69,6 @@ Responda APENAS com uma lista separada por vírgulas, sem explicações ou forma
 Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de implementação`;
 
     try {
-        console.log('Enviando requisição para a API...');
         
         // Usando a API do Gemini via fetch baseando-se na documentação oficial mais recente
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`, {
@@ -96,7 +92,6 @@ Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de imple
             })
         });
 
-        console.log('Status da resposta:', response.status);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -105,20 +100,17 @@ Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de imple
         }
 
         const data = await response.json();
-        console.log('Resposta completa da API:', data);
         
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) {
             console.error('Estrutura de resposta inválida:', data);
-            throw new Error('Resposta da API em formato inválido');
+            throw new Error('a IA não retornou uma lista de critérios.');
         }
         
-        const text = data.candidates[0].content.parts[0].text;
-        console.log('Texto recebido:', text);
         
         // Processar o texto para extrair os critérios
         const criterios = parseCriteriaSuggestions(text);
         
-        console.log('Critérios processados:', criterios);
         
         return criterios;
         

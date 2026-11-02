@@ -46,11 +46,17 @@ function showStep(step) {
     } else if (step === 5) {
         setupWeightingInterface();
     } else if (step === 6) {
-        calculateResults();
+        displayResults();
     }
 
     updateProgressBar();
     updateContextBanner();
+    if (step === 1) {
+        flushAutoSave();
+        renderSavedAnalyses();
+    } else {
+        scheduleAutoSave();
+    }
 }
 
 // Consulta a IA ao sair da apresentação, se configurada e ainda sem critérios.
@@ -112,26 +118,37 @@ function validateStep(step) {
     return true;
 }
 
+// Sai de um passo já validado para o seguinte. Os pesos do método são guardados aqui
+// para que os sliders do resultado possam ser comparados e restaurados.
+function advanceFrom(step) {
+    if (step === 5) state.originalWeights = { ...state.weights };
+    showStep(step + 1);
+}
+
 async function nextStep() {
     const step = state.currentStep;
     if (step >= 6 || !validateStep(step)) return;
 
     if (step === 1) await offerAiSuggestions();
 
-    showStep(step + 1);
+    advanceFrom(step);
 }
 
 function prevStep() {
     if (state.currentStep > 1) showStep(state.currentStep - 1);
 }
 
-// Navegação direta pela barra de progresso: só para passos anteriores
+// Navegação direta pela barra de progresso. Para avançar, valida cada passo do caminho
+// e para no primeiro incompleto, onde o erro explica o que falta.
 function goToStep(targetStep) {
-    if (targetStep > state.currentStep) {
-        showInfo('Complete o passo atual antes de avançar.');
+    if (targetStep < state.currentStep) {
+        showStep(targetStep);
         return;
     }
-    if (targetStep < state.currentStep) showStep(targetStep);
+    while (state.currentStep < targetStep) {
+        if (!validateStep(state.currentStep)) return;
+        advanceFrom(state.currentStep);
+    }
 }
 
 // Atualiza a régua de progresso visual
@@ -179,18 +196,13 @@ function getResults() {
     return { finals, sortedIds: sortByFinalScore(alternativeIds(), finals) };
 }
 
-function calculateResults() {
-    state.originalWeights = { ...state.weights };
-    displayResults();
-}
-
 function renderRankingItems(finals, sortedIds) {
     const positions = computeRankPositions(finals, sortedIds);
     return sortedIds.map((id, index) => {
         const tied = positions.filter(position => position === positions[index]).length > 1;
         return `
         <li>
-            <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
                 <div class="ranking-position">${positions[index]}</div>
                 <div style="flex-grow: 1;">
                     <strong>${escapeHtml(alternativeName(id))}</strong>

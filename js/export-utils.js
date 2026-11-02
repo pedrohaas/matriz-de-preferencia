@@ -6,9 +6,17 @@ function buildExportData() {
     );
 
     return {
+        versao: 1,
         problema: state.problemTitle,
         descricao: state.problemDescription,
         metodo: getWeightingMethodName(),
+        metodoId: state.weightingMethod,
+        entradas: {
+            posicoes: byCriterionName(id => state.weightingInputs.ranks[id]),
+            piorCenario: byCriterionName(id => state.weightingInputs.worst[id]),
+            maisImportante: criterionName(state.weightingInputs.mostImportant),
+            impactos: byCriterionName(id => state.weightingInputs.swing[id]),
+        },
         criterios: state.criteria.map(c => c.name),
         alternativas: state.alternatives.map(a => a.name),
         pesos: byCriterionName(id => state.weights[id]),
@@ -108,7 +116,7 @@ async function saveResultsImage() {
             try {
                 const rules = document.styleSheets[i].cssRules;
                 if (rules) {
-                    for (let j = 0; j < rules.length; j++) css += rules[j].cssText + '\\n';
+                    for (let j = 0; j < rules.length; j++) css += rules[j].cssText + '\n';
                 }
             } catch(err) {}
         }
@@ -150,4 +158,167 @@ async function saveResultsImage() {
 registerActions({
     saveResults,
     saveResultsImage,
+});
+
+// ---- Importação ----
+
+const MAX_IMPORT_BYTES = 1024 * 1024;
+const MAX_IMPORT_ITEMS = 100;
+const WEIGHTING_METHODS = ['ranksum', 'swingweighting'];
+
+function parseNameList(value, label) {
+    if (!Array.isArray(value) || value.length > MAX_IMPORT_ITEMS) {
+        throw new Error(`Lista de ${label} inválida.`);
+    }
+    const names = value.map(name => (typeof name === 'string' ? name.trim() : ''));
+    if (names.some(name => !name)) throw new Error(`Há ${label} sem nome.`);
+    if (new Set(names).size !== names.length) throw new Error(`Há ${label} com nomes repetidos.`);
+    return names;
+}
+
+function parseScore(value) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 10) {
+        throw new Error('Há scores fora da escala de 0 a 10.');
+    }
+    return value;
+}
+
+// Converte os dados de um critério, identificados por nome, para ids.
+// Âncora que aponta para alternativa inexistente invalida o critério, que deve ser refeito.
+function buildComparisonEntry(raw, alternativeIdByName) {
+    if (raw === undefined || raw === null) return {};
+    if (typeof raw !== 'object') throw new Error('Dados de scores inválidos.');
+
+    const entry = {};
+    if (!raw.best) return entry;
+
+    const bestId = alternativeIdByName.get(raw.best);
+    if (!bestId) return entry;
+    entry.best = bestId;
+    if (raw.bestScore === undefined || raw.bestScore === null) return entry;
+    entry.bestScore = parseScore(raw.bestScore);
+
+    if (!raw.worst) return entry;
+    const worstId = alternativeIdByName.get(raw.worst);
+    if (!worstId) return {};
+    if (worstId === bestId) throw new Error('A melhor e a pior alternativa de um critério são a mesma.');
+    entry.worst = worstId;
+    if (raw.worstScore === undefined || raw.worstScore === null) return entry;
+    entry.worstScore = parseScore(raw.worstScore);
+    if (entry.worstScore > entry.bestScore) throw new Error('Há critério com a pior nota acima da melhor.');
+
+    entry.scores = {};
+    if (raw.scores !== undefined && (raw.scores === null || typeof raw.scores !== 'object')) {
+        throw new Error('Dados de scores inválidos.');
+    }
+    Object.entries(raw.scores ?? {}).forEach(([name, value]) => {
+        const id = alternativeIdByName.get(name);
+        if (!id || id === bestId || id === worstId || value === null) return;
+        const score = parseScore(value);
+        if (score < entry.worstScore || score > entry.bestScore) {
+            throw new Error('Há score fora da faixa definida pelas âncoras do critério.');
+        }
+        entry.scores[id] = score;
+    });
+
+    return entry;
+}
+
+function buildWeightingInputs(raw, criterionIdByName, criteriaCount) {
+    const inputs = { ranks: {}, worst: {}, mostImportant: null, swing: {} };
+    if (!raw || typeof raw !== 'object') return inputs;
+
+    const copyValid = (source, target, isValid, convert) => {
+        if (!source || typeof source !== 'object') return;
+        Object.entries(source).forEach(([name, value]) => {
+            const id = criterionIdByName.get(name);
+            if (id && isValid(value)) target[id] = convert(value);
+        });
+    };
+
+    copyValid(raw.posicoes, inputs.ranks,
+        value => Number.isInteger(value) && value >= 1 && value <= criteriaCount, value => value);
+    copyValid(raw.piorCenario, inputs.worst,
+        value => Number.isFinite(parseFloat(value)), value => String(value));
+    copyValid(raw.impactos, inputs.swing,
+        value => parseFloat(value) >= 0 && parseFloat(value) <= 100, value => String(value));
+    inputs.mostImportant = criterionIdByName.get(raw.maisImportante) ?? null;
+
+    return inputs;
+}
+
+// Monta uma análise a partir de dados identificados por nome. Lança erro se forem inválidos.
+function buildStateFromNames({ title, description, criteria, alternatives, comparison, method, inputs }) {
+    if (typeof title !== 'string' || !title.trim()) throw new Error('O título do problema está ausente.');
+
+    const analysis = createInitialState();
+    const createItems = (names, prefix) => names.map(name => ({ id: `${prefix}${analysis.nextId++}`, name }));
+
+    analysis.problemTitle = title.trim();
+    analysis.problemDescription = typeof description === 'string' ? description.trim() : '';
+    analysis.criteria = createItems(parseNameList(criteria, 'critérios'), 'c');
+    analysis.alternatives = createItems(parseNameList(alternatives, 'alternativas'), 'a');
+
+    const alternativeIdByName = new Map(analysis.alternatives.map(a => [a.name, a.id]));
+    const criterionIdByName = new Map(analysis.criteria.map(c => [c.name, c.id]));
+
+    analysis.criteria.forEach(criterion => {
+        const hasData = comparison && typeof comparison === 'object' && Object.hasOwn(comparison, criterion.name);
+        analysis.comparisonData[criterion.id] = hasData
+            ? buildComparisonEntry(comparison[criterion.name], alternativeIdByName)
+            : {};
+    });
+
+    analysis.weightingMethod = WEIGHTING_METHODS.includes(method) ? method : '';
+    analysis.weightingInputs = buildWeightingInputs(inputs, criterionIdByName, analysis.criteria.length);
+
+    return analysis;
+}
+
+function importAnalysisText(text) {
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (error) {
+        throw new Error('O arquivo não é um JSON válido.');
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error('O arquivo não contém uma análise.');
+    }
+
+    const analysis = buildStateFromNames({
+        title: data.problema,
+        description: data.descricao,
+        criteria: data.criterios,
+        alternatives: data.alternativas,
+        comparison: data.resultadosBrutos,
+        method: data.metodoId,
+        inputs: data.entradas,
+    });
+
+    // Os pesos são recalculados pelo formulário ao avançar para o resultado
+    flushAutoSave();
+    loadAnalysis(analysis, 5);
+    lastSavedSnapshot = null;
+    flushAutoSave();
+    return analysis.problemTitle;
+}
+
+async function importAnalysisFile(input) {
+    const file = input.files[0];
+    input.value = '';
+    if (!file) return;
+
+    try {
+        if (file.size > MAX_IMPORT_BYTES) throw new Error('O arquivo é grande demais (limite de 1 MB).');
+        const title = importAnalysisText(await file.text());
+        showSuccess(`Análise "${title}" importada. Confira os pesos para ver o resultado.`);
+    } catch (error) {
+        showError(`Não foi possível importar: ${error.message}`);
+    }
+}
+
+registerActions({
+    chooseImportFile: () => document.getElementById('importFile').click(),
+    importAnalysisFile,
 });

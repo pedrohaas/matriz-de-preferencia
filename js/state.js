@@ -1,8 +1,13 @@
 // Estado único da aplicação. Critérios e alternativas têm um id estável, separado
 // do nome: todo dado associado a eles (scores, pesos, entradas) é indexado pelo id.
 
+function createMatrixId() {
+    return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function createInitialState() {
     return {
+        matrixId: createMatrixId(),
         currentStep: 1,
         problemTitle: '',
         problemDescription: '',

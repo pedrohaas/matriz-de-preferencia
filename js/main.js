@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('weightingMethod').addEventListener('change', function(e) {
         state.weightingMethod = e.target.value;
         setupWeightingInterface();
+        scheduleAutoSave();
     });
 
     document.getElementById('problemTitle').addEventListener('input', function(e) {
@@ -23,29 +24,36 @@ document.addEventListener('DOMContentLoaded', function() {
         state.problemDescription = e.target.value.trim();
         scheduleAutoSave();
     });
+
+    migrateLegacyAnalyses();
+    renderSavedAnalyses();
 });
 
-function restart() {
-    if (!confirm('Iniciar uma nova análise? A análise atual sairá da tela.')) {
-        return;
-    }
-
+function resetApp() {
+    clearTimeout(autoSaveTimeout);
     state = createInitialState();
+    lastSavedSnapshot = null;
 
-    document.getElementById('problemTitle').value = '';
-    document.getElementById('problemDescription').value = '';
+    syncFixedFields();
     document.getElementById('criterionInput').value = '';
     document.getElementById('alternativeInput').value = '';
-    document.getElementById('weightingMethod').value = '';
-
-    document.getElementById('weightingInterface').innerHTML = '';
-    document.getElementById('comparisonInterface').innerHTML = '';
-    document.getElementById('resultsInterface').innerHTML = '';
+    ['weightingInterface', 'comparisonInterface', 'resultsInterface'].forEach(id => {
+        document.getElementById(id).innerHTML = '';
+    });
 
     updateCriteriaList();
     updateAlternativesList();
     showStep(1);
     document.getElementById('apiConfigSection').classList.remove('collapsed');
+    setSaveStatus('💾 Defina um título para salvar sua análise automaticamente');
+}
 
+function restart() {
+    if (!confirm('Iniciar uma nova análise? A análise atual continuará disponível em "Análises salvas".')) {
+        return;
+    }
+
+    flushAutoSave();
+    resetApp();
     showSuccess('Sistema reiniciado! Você pode começar uma nova análise.');
 }

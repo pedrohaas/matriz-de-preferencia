@@ -17,7 +17,10 @@ function registerActions(actions) {
 function dispatchUiAction(event, attribute) {
     const element = event.target.closest?.(`[data-${attribute}]`);
     if (!element) return;
-    uiActions[element.dataset[attribute]]?.(element);
+    const handler = uiActions[element.dataset[attribute]];
+    if (!handler) return;
+    handler(element);
+    scheduleAutoSave();
 }
 
 document.addEventListener('click', event => dispatchUiAction(event, 'action'));
@@ -40,18 +43,11 @@ function showSuccess(message) {
     _showToast(message, 'success', 3000);
 }
 
-/**
- * Mostra uma mensagem informativa como toast.
- */
-function showInfo(message) {
-    _showToast(message, 'info', 4000);
-}
-
 function _showToast(message, type, duration) {
     // Remove toast anterior do mesmo tipo
     document.querySelectorAll(`.toast-notification.toast-${type}`).forEach(el => el.remove());
 
-    const icons = { error: '⛔', success: '✅', info: 'ℹ️' };
+    const icons = { error: '⛔', success: '✅' };
     const toast = document.createElement('div');
     toast.className = `toast-notification toast-${type}`;
 
