@@ -9,14 +9,15 @@ function currentEntry() {
 }
 
 function setupComparisonInterface() {
-    state.currentCriterionIndex = 0;
-
     // Critérios novos começam vazios; os existentes preservam os dados
     state.criteria.forEach(criterion => {
         if (!state.comparisonData[criterion.id]) {
             state.comparisonData[criterion.id] = {};
         }
     });
+
+    // Abre o primeiro critério pendente, ou o primeiro de todos se estiverem concluídos
+    state.currentCriterionIndex = Math.max(0, state.criteria.findIndex(c => !isComplete(c.id)));
 
     showComparisonForCriterion();
 }

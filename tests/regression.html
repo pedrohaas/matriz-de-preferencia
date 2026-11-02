@@ -23,7 +23,15 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let frame = null;
 
 async function load() {
+    // Nesta ordem: remover o iframe dispara o salvamento da análise que estava aberta
+    if (frame) frame.remove();
+    frame = null;
     localStorage.clear();
+    return openPage();
+}
+
+// Abre a aplicação preservando o localStorage, como ao recarregar a página
+async function openPage() {
     if (frame) frame.remove();
     frame = document.createElement('iframe');
     frame.src = '../index.html?' + Math.random();
@@ -573,29 +581,394 @@ test('Imagem exportada não leva botões e escapa os nomes', async () => {
     equal(action(w, 'saveResultsImage').disabled, false, 'botão restaurado');
 });
 
-test('Estado salvo inclui método e entradas, e volta ao carregar', async () => {
+const savedAnalyses = () => JSON.parse(localStorage.getItem('analisesSalvas') ?? '{}');
+const savedOf = w => savedAnalyses()[read(w, 'state.matrixId')]?.state;
+const listRows = w => [...w.document.querySelectorAll('.saved-analysis')];
+const openFromList = (w, title) => listRows(w).find(r => r.textContent.includes(title))
+    .querySelector('[data-action="openAnalysis"]').click();
+
+test('Cada alteração é salva sem ação do usuário', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    score(w, 'A', 10, 'B', 2);
+    await sleep(1200);
+    const saved = savedOf(w);
+    const entry = saved.comparisonData[criterionId(w, 'C1')];
+    equal([entry.bestScore, entry.worstScore], [10, 2], 'scores');
+    equal(saved.currentStep, 4, 'passo');
+    selectMethod(w, 'ranksum');
+    w.flushAutoSave();
+    equal(savedOf(w).weightingMethod, 'ranksum', 'método');
+});
+
+test('Status de salvamento informa quando a análise foi salva', async () => {
+    const w = await load();
+    equal(el(w, 'saveStatus').textContent.includes('Defina um título'), true, 'sem título');
+    setField(w, 'problemTitle', 'Teste');
+    w.flushAutoSave();
+    equal(el(w, 'saveStatus').textContent.includes('Salvo automaticamente às'), true, 'com título');
+});
+
+test('Falha ao gravar é informada sem interromper a análise', async () => {
+    const w = await load();
+    setField(w, 'problemTitle', 'Teste');
+    w.Storage.prototype.setItem = () => { throw new Error('cheio'); };
+    w.flushAutoSave();
+    equal(el(w, 'saveStatus').textContent.includes('Não foi possível salvar'), true, 'status');
+});
+
+test('Recarregar a página logo após uma alteração não a perde', async () => {
+    let w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B']);
+    card(w, 'A').click();
+    equal(savedOf(w)?.comparisonData?.[criterionId(w, 'C1')]?.best, undefined, 'alteração ainda pendente');
+    const reloaded = new Promise(resolve => { frame.onload = resolve; });
+    w.location.reload();
+    await reloaded;
+    w = frame.contentWindow;
+    equal(Object.keys(savedAnalyses()).length, 1, 'análises');
+    openFromList(w, 'Teste');
+    equal(read(w, 'state.currentStep'), 4, 'passo');
+    equal(el(w, 'bestScore') !== null, true, 'retoma na mesma subetapa');
+});
+
+test('Mudar o título mantém uma só análise, e títulos iguais não se sobrescrevem', async () => {
+    const w = await load();
+    for (const title of ['E', 'Es', 'Esc']) { setField(w, 'problemTitle', title); w.flushAutoSave(); }
+    equal(Object.values(savedAnalyses()).map(a => a.state.problemTitle), ['Esc'], 'renomeando');
+    w.restart();
+    setField(w, 'problemTitle', 'Esc');
+    w.flushAutoSave();
+    equal(Object.keys(savedAnalyses()).length, 2, 'mesmo título');
+    equal(listRows(w).length, 2, 'linhas');
+});
+
+test('Retoma no passo de pesos com os formulários preenchidos', async () => {
+    let w = await load();
+    await goToWeights(w);
+    rankSum(w, [2, 1, 3]);
+    w.flushAutoSave();
+    w = await openPage();
+    equal(read(w, 'state.currentStep'), 1, 'começa na tela inicial');
+    openFromList(w, 'Teste');
+    equal(read(w, 'state.currentStep'), 5, 'passo');
+    equal(el(w, 'weightingMethod').value, 'ranksum', 'método');
+    equal(read(w, 'criterionIds()').map(id => el(w, `ranksum_${id}`).value), ['2', '1', '3'], 'posições');
+    await w.nextStep();
+    closeWeights(weightsByName(w), { C1: 2 / 6, C2: 3 / 6, C3: 1 / 6 });
+});
+
+test('Retoma no resultado preservando o ajuste dos sliders', async () => {
+    let w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    action(w, 'equalizeWeights').click();
+    w.flushAutoSave();
+    w = await openPage();
+    openFromList(w, 'Teste');
+    equal(read(w, 'state.currentStep'), 6, 'passo');
+    equal(el(w, 'saveStatus').textContent.includes('Defina um título'), false, 'status');
+    equal(el(w, 'resultsMethod').textContent, 'Rank-Sum (pesos ajustados manualmente)', 'método');
+    action(w, 'resetWeights').click();
+    closeWeights(weightsByName(w), RANK_123);
+});
+
+test('Abrir análise preserva a data e salva a anterior', async () => {
+    const w = await load();
+    setField(w, 'problemTitle', 'Primeira');
+    w.flushAutoSave();
+    const savedAt = Object.values(savedAnalyses())[0].savedAt;
+    w.restart();
+    setField(w, 'problemTitle', 'Segunda');
+    await sleep(20);
+    openFromList(w, 'Primeira');
+    await sleep(1200);
+    const all = Object.values(savedAnalyses());
+    equal(all.find(a => a.state.problemTitle === 'Primeira').savedAt, savedAt, 'data');
+    equal(all.some(a => a.state.problemTitle === 'Segunda'), true, 'anterior salva');
+    equal(el(w, 'problemTitle').value, 'Primeira', 'campo');
+});
+
+test('Passo salvo é limitado pelo que os dados permitem', async () => {
+    const w = await load();
+    setField(w, 'problemTitle', 'Teste');
+    w.flushAutoSave();
+    const all = savedAnalyses();
+    const id = Object.keys(all)[0];
+    all[id].state.currentStep = 6;
+    localStorage.setItem('analisesSalvas', JSON.stringify(all));
+    w.restart();
+    w.openAnalysis(id);
+    equal(read(w, 'state.currentStep'), 2, 'passo');
+});
+
+test('Análise salva corrompida é recusada sem quebrar a tela', async () => {
+    const w = await load();
+    localStorage.setItem('analisesSalvas', JSON.stringify({ x: { savedAt: 'ruim', state: { problemTitle: '<b>t</b>', criteria: 'nao' } } }));
+    await openPage();
+    const page = frame.contentWindow;
+    equal(listRows(page).length, 1, 'linha');
+    equal(page.document.querySelectorAll('.saved-analysis b').length, 0, 'título escapado');
+    openFromList(page, '<b>t</b>');
+    equal(page.document.querySelector('.toast-error .toast-text').textContent.includes('inválidos'), true, 'mensagem');
+    equal(read(page, 'state.currentStep'), 1, 'permanece na tela inicial');
+});
+
+test('Armazenamento ilegível não impede abrir a aplicação', async () => {
+    await load();
+    localStorage.setItem('analisesSalvas', '{quebrado');
+    localStorage.setItem('matrizesSalvas', '{quebrado');
+    const w = await openPage();
+    equal(listRows(w).length, 0, 'lista');
+    equal(w.uiErrors, [], 'erros');
+});
+
+test('Excluir pede confirmação, e excluir a aberta recomeça a tela', async () => {
+    const w = await load();
+    setField(w, 'problemTitle', 'Aberta');
+    w.flushAutoSave();
+    const remove = () => w.document.querySelector('[data-action="deleteAnalysis"]').click();
+
+    w.confirm = () => false;
+    remove();
+    equal(Object.keys(savedAnalyses()).length, 1, 'cancelado');
+
+    w.confirm = () => true;
+    remove();
+    await sleep(1200);
+    equal(Object.keys(savedAnalyses()).length, 0, 'excluída e não recriada');
+    equal(el(w, 'problemTitle').value, '', 'tela');
+    equal(w.document.querySelector('.saved-analyses-empty') !== null, true, 'lista vazia');
+});
+
+test('Matrizes do formato antigo são convertidas', async () => {
+    await load();
+    localStorage.setItem('matrizesSalvas', JSON.stringify({
+        'Antiga': {
+            problemTitle: 'Antiga', problemDescription: 'Desc', lastSaved: '2026-01-02T03:04:05.000Z',
+            criteria: ["Custo d'água", 'C2'], alternatives: ['A', 'B', 'C'],
+            weights: { "Custo d'água": 0.5, C2: 0.5 },
+            comparisonData: {
+                "Custo d'água": { best: 'A', bestScore: 10, worst: 'B', worstScore: 0, scores: { C: 5, Removida: 4 } },
+                C2: { best: 'Removida', bestScore: 9 },
+            },
+        },
+        'Ant': { problemTitle: 'Ant', criteria: [], alternatives: [] },
+        'Quebrada': { problemTitle: 'Quebrada', criteria: ['X'], alternatives: ['Y'], comparisonData: { X: { best: 'Y', bestScore: 99 } } },
+    }));
+    const w = await openPage();
+    const all = Object.values(savedAnalyses());
+    equal(all.map(a => a.state.problemTitle), ['Antiga'], 'convertidas');
+    equal(all[0].savedAt, '2026-01-02T03:04:05.000Z', 'data');
+    equal(Object.keys(JSON.parse(localStorage.getItem('matrizesSalvas'))), ['Quebrada'], 'não convertida preservada');
+
+    openFromList(w, 'Antiga');
+    equal(read(w, 'state.currentStep'), 4, 'volta ao critério pendente');
+    equal(el(w, 'problemDescription').value, 'Desc', 'descrição');
+    const entry = read(w, `state.comparisonData['${criterionId(w, "Custo d'água")}']`);
+    equal(entry.scores, { [alternativeId(w, 'C')]: 5 }, 'score, sem a alternativa removida');
+    equal(read(w, `state.comparisonData['${criterionId(w, 'C2')}']`), {}, 'âncora inexistente reinicia o critério');
+});
+
+test('Formato intermediário, com ids, também é convertido', async () => {
+    await load();
+    localStorage.setItem('matrizesSalvas', JSON.stringify({
+        T: { problemTitle: 'T', criteria: [{ id: 'c1', name: 'C' }], alternatives: [], nextId: 2, currentStep: 2, comparisonData: {} },
+    }));
+    await openPage();
+    equal(Object.values(savedAnalyses())[0].state.criteria, [{ id: 'c1', name: 'C' }], 'critérios');
+    equal(localStorage.getItem('matrizesSalvas'), null, 'chave antiga removida');
+});
+
+// ---- Importação ----
+async function exportedRankSum() {
     const w = await load();
     await goToWeights(w);
     rankSum(w, [2, 1, 3]);
-    w.salvarAutomaticamente();
+    await w.nextStep();
+    return { w, data: JSON.parse(w.JSON.stringify(w.buildExportData())) };
+}
+
+test('Exportar e importar recupera a mesma análise', async () => {
+    const { w, data } = await exportedRankSum();
     w.restart();
-    w.prompt = () => 'Teste';
-    w.carregarMatrizNomeada();
+    w.importAnalysisText(JSON.stringify(data));
+    equal(read(w, 'state.currentStep'), 5, 'abre nos pesos');
     equal(read(w, 'state.weightingMethod'), 'ranksum', 'método');
-    equal(el(w, 'weightingMethod').value, 'ranksum', 'select');
-    equal(read(w, 'state.criteria.length'), 3, 'critérios');
-    equal(el(w, 'problemTitle').value, 'Teste', 'título');
-    for (let i = 0; i < 4; i++) await w.nextStep();
     equal(read(w, 'criterionIds()').map(id => el(w, `ranksum_${id}`).value), ['2', '1', '3'], 'posições');
+    await w.nextStep();
+    const again = JSON.parse(w.JSON.stringify(w.buildExportData()));
+    equal(again.scoresFinais, data.scoresFinais, 'scores finais');
+    equal(again.ordenacao, data.ordenacao, 'ordenação');
+    equal(again.resultadosBrutos, data.resultadosBrutos, 'dados brutos');
+    equal(Object.keys(savedAnalyses()).length, 2, 'nova análise salva, original preservada');
 });
 
-test('Matriz no formato antigo é recusada sem quebrar a análise', async () => {
+test('Importação recupera as entradas do Swing', async () => {
     const w = await load();
-    localStorage.setItem('matrizesSalvas', JSON.stringify({ Antiga: { problemTitle: 'Antiga', criteria: ['C1'], alternatives: ['A'] } }));
-    w.prompt = () => 'Antiga';
-    w.carregarMatrizNomeada();
-    equal(read(w, 'state.criteria'), [], 'estado intacto');
-    equal(w.document.querySelector('.toast-error .toast-text').textContent.includes('formato antigo'), true, 'mensagem');
+    await goToWeights(w);
+    swing(w);
+    await w.nextStep();
+    const data = JSON.parse(w.JSON.stringify(w.buildExportData()));
+    w.restart();
+    w.importAnalysisText(JSON.stringify(data));
+    await w.nextStep();
+    equal(read(w, 'state.currentStep'), 6, 'passo');
+    closeWeights(weightsByName(w), SWING_100_50_25);
+});
+
+test('JSON exportado por versões anteriores também é importado', async () => {
+    const w = await load();
+    w.importAnalysisText(JSON.stringify({
+        problema: 'Antigo', descricao: 'D', criterios: ['C1', 'C2'], alternativas: ['A', 'B'],
+        pesos: { C1: 0.5, C2: 0.5 },
+        resultadosBrutos: {
+            C1: { best: 'A', bestScore: 10, worst: 'B', worstScore: 2, scores: {} },
+            C2: { best: 'B', bestScore: 8, worst: 'A', worstScore: 0, scores: {} },
+        },
+    }));
+    equal(read(w, 'state.currentStep'), 5, 'abre nos pesos');
+    equal(read(w, 'state.weightingMethod'), '', 'método a escolher');
+});
+
+test('Importação parcial abre no passo que falta', async () => {
+    const w = await load();
+    w.importAnalysisText(JSON.stringify({ problema: 'P', criterios: ['C1'], alternativas: [] }));
+    equal(read(w, 'state.currentStep'), 2, 'critérios');
+    w.importAnalysisText(JSON.stringify({ problema: 'P', criterios: ['C1', 'C2'], alternativas: ['A', 'B'] }));
+    equal(read(w, 'state.currentStep'), 4, 'scores');
+});
+
+test('Arquivo inválido é recusado sem alterar a análise aberta', async () => {
+    const w = await load();
+    setField(w, 'problemTitle', 'Atual');
+    const raw = { C1: { best: 'A', bestScore: 10, worst: 'B', worstScore: 2, scores: {} } };
+    const base = { problema: 'P', criterios: ['C1', 'C2'], alternativas: ['A', 'B', 'C'], resultadosBrutos: raw };
+    const invalid = {
+        'não é JSON': '{ruim',
+        'array': '[]',
+        'null': 'null',
+        'sem título': JSON.stringify({ ...base, problema: '' }),
+        'título numérico': JSON.stringify({ ...base, problema: 5 }),
+        'critérios ausentes': JSON.stringify({ problema: 'P', alternativas: [] }),
+        'nomes repetidos': JSON.stringify({ ...base, criterios: ['C1', 'C1'] }),
+        'nome numérico': JSON.stringify({ ...base, alternativas: [1, 2] }),
+        'nome vazio': JSON.stringify({ ...base, alternativas: ['A', '  '] }),
+        'itens demais': JSON.stringify({ ...base, criterios: Array.from({ length: 101 }, (_, i) => `C${i}`) }),
+        'score acima de 10': JSON.stringify({ ...base, resultadosBrutos: { C1: { ...raw.C1, bestScore: 11 } } }),
+        'score como texto': JSON.stringify({ ...base, resultadosBrutos: { C1: { ...raw.C1, bestScore: '10' } } }),
+        'pior acima da melhor': JSON.stringify({ ...base, resultadosBrutos: { C1: { ...raw.C1, worstScore: 10.5, bestScore: 10 } } }),
+        'melhor igual à pior': JSON.stringify({ ...base, resultadosBrutos: { C1: { ...raw.C1, worst: 'A' } } }),
+        'score fora das âncoras': JSON.stringify({ ...base, resultadosBrutos: { C1: { ...raw.C1, scores: { C: 1 } } } }),
+        'critério não objeto': JSON.stringify({ ...base, resultadosBrutos: { C1: 'x' } }),
+    };
+    for (const [label, text] of Object.entries(invalid)) {
+        let error = null;
+        try { w.importAnalysisText(text); } catch (e) { error = e; }
+        equal(!!error, true, `recusa: ${label}`);
+        equal(read(w, 'state.problemTitle'), 'Atual', `estado após: ${label}`);
+    }
+});
+
+test('Importar pelo botão aceita arquivo válido e informa erro no inválido', async () => {
+    const w = await load();
+    const choose = async (name, text) => {
+        const transfer = new w.DataTransfer();
+        transfer.items.add(new w.File([text], name, { type: 'application/json' }));
+        const input = el(w, 'importFile');
+        input.files = transfer.files;
+        input.dispatchEvent(new w.Event('change', { bubbles: true }));
+        await sleep(100);
+    };
+    await choose('ruim.json', '{ruim');
+    equal(w.document.querySelector('.toast-error .toast-text').textContent.includes('JSON válido'), true, 'erro');
+    await choose('grande.json', ' '.repeat(1024 * 1024 + 1));
+    equal(w.document.querySelector('.toast-error .toast-text').textContent.includes('grande demais'), true, 'tamanho');
+    await choose('ok.json', JSON.stringify({ problema: 'Importada', criterios: ['C1'], alternativas: [] }));
+    equal(read(w, 'state.problemTitle'), 'Importada', 'importada');
+});
+
+test('Importação trata HTML e nomes especiais como texto', async () => {
+    const w = await load();
+    const xss = '<img src=x onerror="window.__xss=1">';
+    w.importAnalysisText(JSON.stringify({
+        problema: xss, descricao: xss, criterios: ['constructor', '__proto__'], alternativas: [xss, 'toString'],
+    }));
+    await sleep(150);
+    equal(read(w, 'state.currentStep'), 4, 'passo');
+    equal(read(w, `state.comparisonData['${criterionId(w, 'constructor')}']`), {}, 'sem herdar propriedades');
+    equal(read(w, `state.comparisonData['${criterionId(w, '__proto__')}']`), {}, '__proto__');
+    w.goToStep(1);
+    await sleep(150);
+    equal(w.__xss ?? null, null, 'código executado');
+    equal(w.document.querySelectorAll('img[src="x"]').length, 0, 'elementos injetados');
+});
+
+// ---- Barra de progresso ----
+test('Barra de progresso avança validando o caminho', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    w.goToStep(2);
+    w.goToStep(6);
+    equal(read(w, 'state.currentStep'), 6, 'volta ao resultado');
+    closeWeights(weightsByName(w), RANK_123);
+    equal(el(w, 'resultsMethod').textContent, 'Rank-Sum', 'método');
+
+    w.goToStep(3);
+    el(w, 'alternativeInput').value = 'D';
+    w.addAlternative();
+    w.goToStep(6);
+    equal(read(w, 'state.currentStep'), 4, 'para no primeiro passo incompleto');
+});
+
+test('Barra de progresso exige título na tela inicial', async () => {
+    const w = await load();
+    w.goToStep(3);
+    equal(read(w, 'state.currentStep'), 1, 'passo');
+});
+
+// ---- Dependências locais ----
+test('Imagem é gerada de verdade com o html2canvas local', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+
+    const external = [...w.document.scripts].map(s => s.src).filter(src => src && !src.startsWith(w.location.origin));
+    equal(external, [], 'scripts externos');
+
+    let blob = null;
+    w.URL.createObjectURL = value => { blob = value; return 'blob:teste'; };
+    w.URL.revokeObjectURL = () => {};
+    w.HTMLAnchorElement.prototype.click = () => {};
+    action(w, 'saveResultsImage').click();
+    for (let i = 0; i < 100 && !blob; i++) await sleep(100);
+    equal(blob?.type, 'image/png', 'tipo');
+    equal(blob.size > 5000, true, `tamanho (${blob.size})`);
+    equal(w.document.querySelectorAll('body > div[style*="-9999px"]').length, 0, 'clone removido');
+});
+
+test('Logo carrega do arquivo otimizado', async () => {
+    const w = await load();
+    const logo = w.document.querySelector('.header img');
+    equal(logo.getAttribute('src'), 'images/logo.webp', 'src');
+    for (let i = 0; i < 30 && !logo.complete; i++) await sleep(50);
+    equal(logo.naturalWidth, 432, 'largura');
+});
+
+test('Resposta da IA sem texto gera mensagem compreensível', async () => {
+    const w = await load();
+    localStorage.setItem('gemini_api_key', 'x'.repeat(30));
+    w.fetch = async () => new Response(JSON.stringify({ candidates: [{ content: { role: 'model' }, finishReason: 'MAX_TOKENS' }] }), { status: 200 });
+    let message = null;
+    w.alert = text => { message = text; };
+    setField(w, 'problemTitle', 'Teste');
+    await w.nextStep();
+    equal(message.includes('não retornou uma lista'), true, 'mensagem');
+    equal(read(w, 'state.currentStep'), 2, 'segue sem sugestões');
 });
 
 // ---- IA ----
