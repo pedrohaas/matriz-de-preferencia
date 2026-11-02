@@ -36,10 +36,13 @@ Através de uma interface passo a passo, o usuário divide o problema em partes 
 - **Wizard Passo a Passo**: Processo guiado estruturado em passos claros (Apresentação, Critérios, Alternativas, Scores, Pesos e Resultado).
 - **Avaliação de Desempenho Visual (Scores)**: Sistema inteligente que solicita a definição da melhor alternativa (âncora superior), da pior alternativa (âncora inferior) e o posicionamento das demais em relação a elas.
 - **Ajuste Dinâmico de Pesos**: Na tela de resultados, é possível utilizar _sliders_ interativos para alterar o peso dos critérios em tempo real e visualizar imediatamente como isso afeta o ranking, com suporte opcional a **Normalização Automática**.
+- **Gráfico de Contribuição**: Mostra quanto cada critério soma à nota final de cada alternativa, ajudando a explicar por que uma venceu.
+- **Comparação de Cenários**: Salva conjuntos de pesos, como "foco em custo" e "foco em prazo", e compara os rankings lado a lado.
 - **Alternativas Dominadas**: O resultado aponta alternativas que nenhuma combinação de pesos pode colocar à frente de outra.
 - **Análise de Sensibilidade**: Mostra, para cada critério, a partir de qual peso a alternativa vencedora muda e qual passa à frente, variando um peso por vez.
 - **Salvamento Automático**: Cada alteração é salva no `localStorage` do navegador. A seção "Análises salvas", na tela inicial, permite retomar uma análise de onde parou ou excluí-la.
 - **Exportação de Resultados**:
+  - Gerar um **relatório em PDF** pela impressão do navegador, com o texto selecionável e paginação própria.
   - Salvar o relatório completo (matriz e ranking) como **Imagem (PNG)**.
   - Exportar os dados da decisão para **JSON**, que pode ser **importado** de volta, inclusive em outro navegador. Os ajustes feitos nos sliders não são importados: os pesos são recalculados pelo método.
 - **Acessível e Responsiva**: Funciona por teclado, com rótulos para leitores de tela, e se adapta a telas de celular.
@@ -97,6 +100,7 @@ matriz-de-preferencia/
 │   ├── swing-weighting.js  # Formulários de pesagem (Rank-Sum, Swing)
 │   ├── decision-logic.js   # Controle de fluxo, validações e cálculo dos resultados
 │   ├── ai-suggestions.js   # Comunicação via Fetch com o Google Gemini
+│   ├── report.js           # Gráfico de contribuição, cenários e relatório
 │   ├── auto-save.js        # Salvamento automático e análises salvas (localStorage)
 │   └── export-utils.js     # Exportação (JSON e imagem) e importação de JSON
 │

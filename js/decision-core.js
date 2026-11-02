@@ -196,3 +196,34 @@ function analyzeSensitivity(criterionIds, alternativeIds, comparisonData, weight
 
     return { status: 'ok', winner, criteria, closest };
 }
+
+/** Quanto cada critério soma à nota final de uma alternativa: nota × peso. */
+function computeContributions(criterionIds, alternativeId, comparisonData, weights) {
+    return criterionIds.map(id => {
+        const score = getScore(comparisonData[id], alternativeId);
+        return { id, score, weight: weights[id], value: score * weights[id] };
+    });
+}
+
+/**
+ * Pesos de um cenário para os critérios atuais, normalizados. Devolve null se o cenário
+ * não puder ser usado: critério adicionado depois de salvo ou pesos zerados.
+ */
+function scenarioWeightsFor(scenario, criterionIds) {
+    if (!criterionIds.every(id => Number.isFinite(scenario.weights[id]))) return null;
+
+    const raw = Object.fromEntries(criterionIds.map(id => [id, scenario.weights[id]]));
+    const total = Object.values(raw).reduce((sum, weight) => sum + weight, 0);
+    return total > FLOAT_TOLERANCE ? normalizeWeights(raw) : null;
+}
+
+/** Ranking de cada conjunto de pesos. Recebe [{ id, weights }]. */
+function compareWeightSets(criterionIds, alternativeIds, comparisonData, weightSets) {
+    return weightSets.map(({ id, weights }) => {
+        const finals = computeFinalScores(criterionIds, alternativeIds, comparisonData, weights);
+        const sortedIds = sortByFinalScore(alternativeIds, finals);
+        const positionList = computeRankPositions(finals, sortedIds);
+        const positions = Object.fromEntries(sortedIds.map((alternativeId, index) => [alternativeId, positionList[index]]));
+        return { id, finals, positions, winners: topAlternatives(finals, sortedIds) };
+    });
+}
