@@ -220,6 +220,53 @@ function migrateLegacyAnalyses() {
     }
 }
 
+// Recebe as análises vindas do endereço antigo (veja canonical-site.js). Como os dados
+// chegam por um link, só são gravados com a confirmação do usuário e depois de validados.
+function receiveMigratedAnalyses(hash) {
+    if (!hash.startsWith(MIGRATION_HASH_PREFIX)) return;
+    history.replaceState(null, '', location.pathname + location.search);
+
+    let received;
+    let incoming;
+    let legacy;
+    try {
+        received = JSON.parse(decodeURIComponent(hash.slice(MIGRATION_HASH_PREFIX.length)));
+        incoming = received.analyses ? JSON.parse(received.analyses) : {};
+        legacy = received.legacy ? JSON.parse(received.legacy) : {};
+    } catch (error) {
+        console.error('Análises recebidas ilegíveis:', error);
+        return;
+    }
+
+    const validEntries = Object.entries(incoming).filter(([, entry]) => {
+        try {
+            return hydrateState(entry?.state).matrixId === entry.state.matrixId;
+        } catch (error) {
+            return false;
+        }
+    });
+    const total = validEntries.length + Object.keys(legacy).length;
+    if (total === 0) return;
+    if (!confirm(`O site mudou de endereço. Trazer ${total} análise(s) salva(s) no endereço antigo para este?`)) return;
+
+    const analyses = readSavedAnalyses();
+    validEntries.forEach(([, entry]) => {
+        const id = entry.state.matrixId;
+        if (!analyses[id]) analyses[id] = entry;
+    });
+    writeSavedAnalyses(analyses);
+
+    if (Object.keys(legacy).length > 0) {
+        let currentLegacy = {};
+        try {
+            currentLegacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY)) || {};
+        } catch (error) {
+            console.error('Matrizes antigas ilegíveis:', error);
+        }
+        localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ ...legacy, ...currentLegacy }));
+    }
+}
+
 registerActions({
     openAnalysis: el => openAnalysis(el.dataset.id),
     deleteAnalysis: el => deleteAnalysis(el.dataset.id),

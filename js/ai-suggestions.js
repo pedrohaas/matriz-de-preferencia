@@ -119,17 +119,17 @@ Exemplo de resposta: Custo, Qualidade, Prazo, Localização, Facilidade de imple
         
         // Mostrar erro mais específico para o usuário
         if (error.message.includes('404')) {
-            alert("Erro 404: Verifique se a URL da API está correta e se a chave da API é válida.");
+            showError("Erro 404: Verifique se a URL da API está correta e se a chave da API é válida.");
         } else if (error.message.includes('403')) {
-            alert("Erro 403: Chave da API inválida ou sem permissão. Verifique sua chave do Gemini.");
+            showError("Erro 403: Chave da API inválida ou sem permissão. Verifique sua chave do Gemini.");
         } else if (error.message.includes('400')) {
-            alert("Erro 400: Requisição inválida. Verifique os parâmetros enviados.");
+            showError("Erro 400: Requisição inválida. Verifique os parâmetros enviados.");
         } else if (error.message.includes('429')) {
-            alert("Erro 429: Muitas requisições. Tente novamente em alguns minutos.");
+            showError("Erro 429: Muitas requisições. Tente novamente em alguns minutos.");
         } else if (error.message.includes('Failed to fetch')) {
-            alert("Erro de conexão: Verifique sua conexão com a internet.");
+            showError("Erro de conexão: Verifique sua conexão com a internet.");
         } else {
-            alert("Erro ao buscar sugestões de critérios com IA: " + error.message);
+            showError("Erro ao buscar sugestões de critérios com IA: " + error.message);
         }
         
         return [];

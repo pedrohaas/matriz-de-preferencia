@@ -1,0 +1,21 @@
+name: Testes
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  regressao:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, chrome]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Executar testes no ${{ matrix.browser }}
+        run: python3 tests/run.py --browser ${{ matrix.browser }}
