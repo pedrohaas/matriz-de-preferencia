@@ -1341,7 +1341,8 @@ test('Configuração da IA recolhida sai da navegação por teclado', async () =
     equal(toggle.getAttribute('aria-expanded'), 'true', 'aberta');
     toggle.click();
     equal(toggle.getAttribute('aria-expanded'), 'false', 'recolhida');
-    await sleep(450);
+    // A transição do painel (0,35 s) é seguida pela do próprio campo (0,2 s)
+    await sleep(800);
     equal(w.getComputedStyle(el(w, 'apiKey')).visibility, 'hidden', 'campo oculto');
     toggle.click();
     equal(toggle.getAttribute('aria-expanded'), 'true', 'reaberta');
