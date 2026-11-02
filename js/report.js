@@ -239,16 +239,6 @@ function renderReportWeights() {
     `;
 }
 
-function renderReportMatrix(finals, sortedIds) {
-    const headers = state.criteria.map(c => `<th scope="col">${escapeHtml(c.name)}</th>`).join('');
-    return `
-        <table class="matrix-table">
-            <thead><tr><th scope="col">Alternativa</th>${headers}<th scope="col">Nota final</th></tr></thead>
-            <tbody>${renderMatrixRows(finals, sortedIds)}</tbody>
-        </table>
-    `;
-}
-
 function buildReport() {
     const { finals, sortedIds } = getResults();
     const positions = computeRankPositions(finals, sortedIds);
@@ -292,7 +282,7 @@ function buildReport() {
         <section class="report-section">
             <h2>Matriz de decisão</h2>
             <p class="report-note">Cada célula traz a nota e, entre parênteses, a nota multiplicada pelo peso.</p>
-            ${renderReportMatrix(finals, sortedIds)}
+            <table class="matrix-table">${renderMatrixContent(finals, sortedIds)}</table>
         </section>
 
         ${dominance ? `<section class="report-section">${dominance}</section>` : ''}

@@ -3,7 +3,7 @@
 const STORAGE_KEY = 'analisesSalvas';
 const LEGACY_STORAGE_KEY = 'matrizesSalvas';
 const AUTO_SAVE_DELAY_MS = 1000;
-const STEP_NAMES = ['Apresentação', 'Critérios', 'Alternativas', 'Scores', 'Pesos', 'Resultado'];
+const STEP_NAMES = ['Apresentação', 'Critérios', 'Alternativas', 'Scores', 'Pesos', 'Tomada de Decisão'];
 
 let autoSaveTimeout = null;
 let lastSavedSnapshot = null;

@@ -1507,12 +1507,21 @@ footer {
     color: var(--text-soft);
 }
 
-.scenario-table th[scope="row"] {
+.matrix-table tbody th[scope="row"],
+.matrix-table tfoot th[scope="row"] {
     background: none;
     color: var(--text-dark);
     text-align: left;
-    overflow-wrap: anywhere;
+    /* break-word, e não anywhere: palavras comuns ficam inteiras e a tabela rola */
+    overflow-wrap: break-word;
     border-bottom: 1px solid var(--border);
+}
+
+.matrix-table tfoot th[scope="row"],
+.matrix-table tfoot td {
+    background: var(--white);
+    border-top: 2px solid var(--primary);
+    border-bottom: none;
 }
 
 .scenario-table td {
