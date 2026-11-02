@@ -263,15 +263,26 @@ function renderRankingItems(finals, sortedIds) {
     }).join('');
 }
 
-function renderMatrixRows(finals, sortedIds) {
-    return sortedIds.map(alternativeId => {
-        const cells = state.criteria.map(criterion => {
+// Matriz de decisão: critérios nas linhas e alternativas nas colunas, em ordem de ranking
+function renderMatrixContent(finals, sortedIds) {
+    const headers = sortedIds.map(id => `<th scope="col">${escapeHtml(alternativeName(id))}</th>`).join('');
+
+    const rows = state.criteria.map(criterion => {
+        const weight = state.weights[criterion.id];
+        const cells = sortedIds.map(alternativeId => {
             const score = getScore(state.comparisonData[criterion.id], alternativeId);
-            const weighted = score * state.weights[criterion.id];
-            return `<td>${score}<br /><small>(${weighted.toFixed(2)})</small></td>`;
+            return `<td>${score}<br /><small>(${(score * weight).toFixed(2)})</small></td>`;
         }).join('');
-        return `<tr><td><strong>${escapeHtml(alternativeName(alternativeId))}</strong></td>${cells}<td><strong>${finals[alternativeId].toFixed(2)}</strong></td></tr>`;
+        return `<tr><th scope="row">${escapeHtml(criterion.name)}</th><td>${(weight * 100).toFixed(1)}%</td>${cells}</tr>`;
     }).join('');
+
+    const totals = sortedIds.map(id => `<td><strong>${finals[id].toFixed(2)}</strong></td>`).join('');
+
+    return `
+        <thead><tr><th scope="col">Critério</th><th scope="col">Peso</th>${headers}</tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><th scope="row" colspan="2">Score Final</th>${totals}</tr></tfoot>
+    `;
 }
 
 // Alternativa(s) em 1º lugar, deixando claro quando há empate. Devolve texto puro.
@@ -385,10 +396,6 @@ function displayResults() {
         `;
     }).join('');
 
-    const matrixHeaders = state.criteria.map(criterion =>
-        `<th>${escapeHtml(criterion.name)}<br /><small id="weight-header-${criterion.id}">Peso: ${(state.weights[criterion.id] * 100).toFixed(1)}%</small></th>`
-    ).join('');
-
     document.getElementById('resultsInterface').innerHTML = `
         <div class="results">
             <h3>🏆 Ranking Final das Alternativas</h3>
@@ -430,16 +437,7 @@ function displayResults() {
         <div style="margin-top: 30px;">
             <h3>📊 Matriz de Decisão Completa</h3>
             <div style="overflow-x: auto;">
-                <table class="matrix-table" id="dynamicMatrix">
-                    <thead>
-                        <tr>
-                            <th>Alternativas</th>
-                            ${matrixHeaders}
-                            <th>Score Final</th>
-                        </tr>
-                    </thead>
-                    <tbody id="matrixBody">${renderMatrixRows(finals, sortedIds)}</tbody>
-                </table>
+                <table class="matrix-table" id="dynamicMatrix">${renderMatrixContent(finals, sortedIds)}</table>
             </div>
         </div>
 
@@ -510,7 +508,6 @@ function updateWeightDisplays() {
         const percentage = (state.weights[criterion.id] * 100).toFixed(1);
         document.getElementById(`weight-${criterion.id}`).value = percentage;
         document.getElementById(`weight-input-${criterion.id}`).value = percentage;
-        document.getElementById(`weight-header-${criterion.id}`).textContent = `Peso: ${percentage}%`;
     });
 }
 
@@ -543,7 +540,7 @@ function updateResultsDisplay() {
     const { finals, sortedIds } = getResults();
 
     document.getElementById('dynamicRanking').innerHTML = renderRankingItems(finals, sortedIds);
-    document.getElementById('matrixBody').innerHTML = renderMatrixRows(finals, sortedIds);
+    document.getElementById('dynamicMatrix').innerHTML = renderMatrixContent(finals, sortedIds);
     document.getElementById('topAlternative').textContent = getRecommendationLabel(finals, sortedIds);
     document.getElementById('resultsMethod').textContent = getResultsMethodLabel();
     document.getElementById('contributionChart').innerHTML = renderContributionChart();

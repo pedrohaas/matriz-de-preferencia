@@ -33,7 +33,7 @@ Através de uma interface passo a passo, o usuário divide o problema em partes 
 
 ## 🧩 Funcionalidades Principais
 
-- **Wizard Passo a Passo**: Processo guiado estruturado em passos claros (Apresentação, Critérios, Alternativas, Scores, Pesos e Resultado).
+- **Wizard Passo a Passo**: Processo guiado estruturado em passos claros (Apresentação, Critérios, Alternativas, Scores, Pesos e Tomada de Decisão).
 - **Avaliação de Desempenho Visual (Scores)**: Sistema inteligente que solicita a definição da melhor alternativa (âncora superior), da pior alternativa (âncora inferior) e o posicionamento das demais em relação a elas.
 - **Ajuste Dinâmico de Pesos**: Na tela de resultados, é possível utilizar _sliders_ interativos para alterar o peso dos critérios em tempo real e visualizar imediatamente como isso afeta o ranking, com suporte opcional a **Normalização Automática**.
 - **Gráfico de Contribuição**: Mostra quanto cada critério soma à nota final de cada alternativa, ajudando a explicar por que uma venceu.

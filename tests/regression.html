@@ -1763,6 +1763,79 @@ test('Imagem exportada leva o gráfico e esconde os controles de cenário', asyn
     equal(captured.controls.every(display => display === 'none'), true, 'controles ocultos');
 });
 
+// ---- Matriz e nome do passo final ----
+const matrixTable = w => {
+    const cells = row => [...row.children].map(c => c.textContent.replace(/\s+/g, ' ').trim());
+    const table = el(w, 'dynamicMatrix');
+    return {
+        head: cells(table.querySelector('thead tr')),
+        rows: [...table.querySelectorAll('tbody tr')].map(cells),
+        total: cells(table.querySelector('tfoot tr')),
+    };
+};
+
+test('Matriz traz critérios nas linhas e alternativas nas colunas', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    equal(matrixTable(w), {
+        head: ['Critério', 'Peso', 'A', 'B'],
+        rows: [['Custo', '66.7%', '10(6.67)', '0(0.00)'], ['Prazo', '33.3%', '0(0.00)', '10(3.33)']],
+        total: ['Score Final', '6.67', '3.33'],
+    }, 'matriz');
+});
+
+test('Matriz acompanha os sliders, reordenando as colunas pelo ranking', async () => {
+    const w = await load();
+    await resultsWithTradeoff(w);
+    setField(w, `weight-${criterionId(w, 'Custo')}`, '20');
+    equal(matrixTable(w), {
+        head: ['Critério', 'Peso', 'B', 'A'],
+        rows: [['Custo', '20.0%', '0(0.00)', '10(2.00)'], ['Prazo', '80.0%', '10(8.00)', '0(0.00)']],
+        total: ['Score Final', '8.00', '2.00'],
+    }, 'matriz');
+});
+
+test('Matriz escapa os nomes e aparece igual no relatório', async () => {
+    const w = await load();
+    await setup(w, ['<b>C1</b>', 'C2'], ['<i>A</i>', 'B']);
+    score(w, '<i>A</i>', 10, 'B', 2);
+    goToCriterion(w, 1);
+    score(w, '<i>A</i>', 8, 'B', 2);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+    equal(el(w, 'dynamicMatrix').querySelectorAll('b, i').length, 0, 'escape');
+    w.print = () => {};
+    action(w, 'printReport').click();
+    const report = [...el(w, 'printReport').querySelectorAll('table')].find(t => t.querySelector('tfoot'));
+    equal(report.querySelector('thead').textContent, el(w, 'dynamicMatrix').querySelector('thead').textContent, 'relatório');
+});
+
+test('Passo final se chama Tomada de Decisão em toda a interface', async () => {
+    const w = await load();
+    equal(el(w, 'step6').querySelector('.step-title').textContent, 'Tomada de Decisão', 'título');
+    equal(el(w, 'prog-item-5').querySelector('.step-label').textContent, 'Tomada de Decisão', 'barra');
+    equal(el(w, 'prog-item-5').getAttribute('aria-label'), 'Tomada de Decisão', 'leitor de tela');
+    equal(el(w, 'step5').querySelector('.navigation .btn-primary').textContent.includes('Tomada de Decisão'), true, 'botão');
+    equal(w.document.body.textContent.includes('Resultado Final'), false, 'nome antigo');
+    assertFits(await load(320), 'barra em 320px');
+});
+
+test('Voltar no meio da pontuação não perde os scores', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    score(w, 'A', 10, 'B', 2);
+    const entry = () => read(w, `state.comparisonData['${criterionId(w, 'C1')}']`);
+    const before = JSON.stringify(entry());
+    w.prevStep();
+    await w.nextStep();
+    equal(JSON.stringify(entry()), before, 'mantidos ao voltar um passo');
+    w.goToStep(1);
+    w.goToStep(4);
+    equal(JSON.stringify(entry()), before, 'mantidos ao voltar ao início');
+    equal(!!card(w, 'Entre "A" e "B"'), true, 'retoma de onde parou');
+});
+
 // ---- Site oficial ----
 function fakeStorage(items) {
     const data = { ...items };
