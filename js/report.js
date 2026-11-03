@@ -281,8 +281,8 @@ function buildReport() {
 
         <section class="report-section">
             <h2>Matriz de decisão</h2>
-            <p class="report-note">Cada célula traz a nota e, entre parênteses, a nota multiplicada pelo peso.</p>
             <table class="matrix-table">${renderMatrixContent(finals, sortedIds)}</table>
+            ${MATRIX_LEGEND}
         </section>
 
         ${dominance ? `<section class="report-section">${dominance}</section>` : ''}
