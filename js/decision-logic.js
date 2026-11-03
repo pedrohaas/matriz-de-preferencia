@@ -263,27 +263,79 @@ function renderRankingItems(finals, sortedIds) {
     }).join('');
 }
 
-// Matriz de decisão: critérios nas linhas e alternativas nas colunas, em ordem de ranking
+// Pontos de swing por critério, ou null se não se aplicarem aos pesos em uso:
+// outro método, formulário incompleto ou pesos alterados pelos sliders
+function getSwingPoints() {
+    if (state.weightingMethod !== 'swingweighting' || hasManualWeightAdjustment()) return null;
+
+    const { mostImportant, swing } = state.weightingInputs;
+    const points = {};
+    for (const id of criterionIds()) {
+        points[id] = id === mostImportant ? 100 : parseFloat(swing[id]);
+        if (!Number.isFinite(points[id])) return null;
+    }
+    return points;
+}
+
+// Matriz de decisão no formato do livro: critérios nas linhas, alternativas nas colunas
+// em ordem de ranking, com o melhor e o pior score de cada critério em destaque
 function renderMatrixContent(finals, sortedIds) {
-    const headers = sortedIds.map(id => `<th scope="col">${escapeHtml(alternativeName(id))}</th>`).join('');
+    const swingPoints = getSwingPoints();
+    const swingHeader = swingPoints ? '<th scope="col" rowspan="2">Swing</th>' : '';
+    const alternativeHeaders = sortedIds.map(id => `<th scope="col">${escapeHtml(alternativeName(id))}</th>`).join('');
 
     const rows = state.criteria.map(criterion => {
-        const weight = state.weights[criterion.id];
-        const cells = sortedIds.map(alternativeId => {
-            const score = getScore(state.comparisonData[criterion.id], alternativeId);
-            return `<td>${score}<br /><small>(${(score * weight).toFixed(2)})</small></td>`;
+        const entry = state.comparisonData[criterion.id];
+        const scores = sortedIds.map(id => getScore(entry, id));
+        const best = Math.max(...scores);
+        const worst = Math.min(...scores);
+
+        const cells = scores.map(score => {
+            // Sem diferença entre as alternativas, não há melhor nem pior
+            if (best === worst) return `<td>${score}</td>`;
+            if (score === best) return `<td class="matrix-best" title="Melhor score do critério">${score}</td>`;
+            if (score === worst) return `<td class="matrix-worst" title="Pior score do critério">${score}</td>`;
+            return `<td>${score}</td>`;
         }).join('');
-        return `<tr><th scope="row">${escapeHtml(criterion.name)}</th><td>${(weight * 100).toFixed(1)}%</td>${cells}</tr>`;
+
+        const swingCell = swingPoints ? `<td>${swingPoints[criterion.id]}</td>` : '';
+        return `<tr><th scope="row">${escapeHtml(criterion.name)}</th>${swingCell}<td>${(state.weights[criterion.id] * 100).toFixed(1)}%</td>${cells}</tr>`;
     }).join('');
 
+    const totalWeight = criterionIds().reduce((sum, id) => sum + state.weights[id], 0);
+    const swingTotal = swingPoints
+        ? `<td><strong>${Object.values(swingPoints).reduce((sum, value) => sum + value, 0)}</strong></td>`
+        : '';
     const totals = sortedIds.map(id => `<td><strong>${finals[id].toFixed(2)}</strong></td>`).join('');
 
     return `
-        <thead><tr><th scope="col">Critério</th><th scope="col">Peso</th>${headers}</tr></thead>
+        <thead>
+            <tr>
+                <th scope="col" rowspan="2">Critério</th>
+                ${swingHeader}
+                <th scope="col" rowspan="2">Peso</th>
+                <th scope="colgroup" colspan="${sortedIds.length}">Alternativas</th>
+            </tr>
+            <tr>${alternativeHeaders}</tr>
+        </thead>
         <tbody>${rows}</tbody>
-        <tfoot><tr><th scope="row" colspan="2">Score Final</th>${totals}</tr></tfoot>
+        <tfoot>
+            <tr>
+                <th scope="row">TOTAL (Somatória)</th>
+                ${swingTotal}
+                <td><strong>${(totalWeight * 100).toFixed(0)}%</strong></td>
+                ${totals}
+            </tr>
+        </tfoot>
     `;
 }
+
+const MATRIX_LEGEND = `
+    <p class="matrix-legend">
+        <span class="matrix-legend-item"><span class="matrix-legend-swatch matrix-best"></span>Melhor score do critério</span>
+        <span class="matrix-legend-item"><span class="matrix-legend-swatch matrix-worst"></span>Pior score do critério</span>
+    </p>
+`;
 
 // Alternativa(s) em 1º lugar, deixando claro quando há empate. Devolve texto puro.
 function getRecommendationLabel(finals, sortedIds) {
@@ -293,11 +345,14 @@ function getRecommendationLabel(finals, sortedIds) {
 }
 
 // Nome do método, indicando quando os sliders alteraram os pesos calculados por ele
-function getResultsMethodLabel() {
-    const adjusted = criterionIds().some(id =>
+function hasManualWeightAdjustment() {
+    return criterionIds().some(id =>
         Math.abs(state.weights[id] - state.originalWeights[id]) > FLOAT_TOLERANCE
     );
-    return getWeightingMethodName() + (adjusted ? ' (pesos ajustados manualmente)' : '');
+}
+
+function getResultsMethodLabel() {
+    return getWeightingMethodName() + (hasManualWeightAdjustment() ? ' (pesos ajustados manualmente)' : '');
 }
 
 function renderDominanceNotice() {
@@ -439,6 +494,7 @@ function displayResults() {
             <div style="overflow-x: auto;">
                 <table class="matrix-table" id="dynamicMatrix">${renderMatrixContent(finals, sortedIds)}</table>
             </div>
+            ${MATRIX_LEGEND}
         </div>
 
         <div class="insight-box" style="margin-top: 30px;">

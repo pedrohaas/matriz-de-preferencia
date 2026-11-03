@@ -931,6 +931,44 @@ textarea:focus {
     font-weight: 600;
 }
 
+.matrix-table thead th[colspan] {
+    border-bottom: 1px solid rgba(255,255,255,0.35);
+}
+
+.matrix-table td.matrix-best {
+    background: var(--success-bg);
+    font-weight: 700;
+}
+
+.matrix-table td.matrix-worst {
+    background: #ffe0bd;
+}
+
+.matrix-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin-top: -6px;
+    font-size: 0.8rem;
+    color: var(--text-soft);
+}
+
+.matrix-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.matrix-legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+}
+
+.matrix-legend-swatch.matrix-best { background: var(--success-bg); }
+.matrix-legend-swatch.matrix-worst { background: #ffe0bd; }
+
 /* ---- PAINÉIS DE ANÁLISE DO RESULTADO ---- */
 .insight-box {
     padding: 20px;
@@ -1612,8 +1650,7 @@ footer {
         color: var(--primary);
     }
 
-    .report-meta,
-    .report-note {
+    .report-meta {
         font-size: 9pt;
         color: var(--text-soft);
     }

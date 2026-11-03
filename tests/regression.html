@@ -1768,20 +1768,48 @@ const matrixTable = w => {
     const cells = row => [...row.children].map(c => c.textContent.replace(/\s+/g, ' ').trim());
     const table = el(w, 'dynamicMatrix');
     return {
-        head: cells(table.querySelector('thead tr')),
+        head: [...table.querySelectorAll('thead tr')].map(cells),
         rows: [...table.querySelectorAll('tbody tr')].map(cells),
         total: cells(table.querySelector('tfoot tr')),
     };
 };
+const highlights = (w, name) => [...el(w, 'dynamicMatrix').querySelectorAll(`td.${name}`)].map(c => c.textContent);
 
-test('Matriz traz critérios nas linhas e alternativas nas colunas', async () => {
+test('Matriz segue o formato do livro no Rank-Sum, sem coluna de swing', async () => {
     const w = await load();
     await resultsWithTradeoff(w);
     equal(matrixTable(w), {
-        head: ['Critério', 'Peso', 'A', 'B'],
-        rows: [['Custo', '66.7%', '10(6.67)', '0(0.00)'], ['Prazo', '33.3%', '0(0.00)', '10(3.33)']],
-        total: ['Score Final', '6.67', '3.33'],
+        head: [['Critério', 'Peso', 'Alternativas'], ['A', 'B']],
+        rows: [['Custo', '66.7%', '10', '0'], ['Prazo', '33.3%', '0', '10']],
+        total: ['TOTAL (Somatória)', '100%', '6.67', '3.33'],
     }, 'matriz');
+});
+
+test('Matriz mostra os pontos de swing e o total deles', async () => {
+    const w = await load();
+    await goToWeights(w);
+    swing(w);
+    await w.nextStep();
+    equal(matrixTable(w), {
+        head: [['Critério', 'Swing', 'Peso', 'Alternativas'], ['A', 'C', 'B']],
+        rows: [
+            ['C1', '100', '57.1%', '10', '10', '2'],
+            ['C2', '50', '28.6%', '10', '10', '2'],
+            ['C3', '25', '14.3%', '10', '10', '2'],
+        ],
+        total: ['TOTAL (Somatória)', '175', '100%', '10.00', '10.00', '2.00'],
+    }, 'matriz');
+});
+
+test('Swing sai da matriz quando os sliders alteram os pesos, e volta ao restaurar', async () => {
+    const w = await load();
+    await goToWeights(w);
+    swing(w);
+    await w.nextStep();
+    action(w, 'equalizeWeights').click();
+    equal(matrixTable(w).head[0], ['Critério', 'Peso', 'Alternativas'], 'após ajustar');
+    action(w, 'resetWeights').click();
+    equal(matrixTable(w).head[0], ['Critério', 'Swing', 'Peso', 'Alternativas'], 'após restaurar');
 });
 
 test('Matriz acompanha os sliders, reordenando as colunas pelo ranking', async () => {
@@ -1789,10 +1817,31 @@ test('Matriz acompanha os sliders, reordenando as colunas pelo ranking', async (
     await resultsWithTradeoff(w);
     setField(w, `weight-${criterionId(w, 'Custo')}`, '20');
     equal(matrixTable(w), {
-        head: ['Critério', 'Peso', 'B', 'A'],
-        rows: [['Custo', '20.0%', '0(0.00)', '10(2.00)'], ['Prazo', '80.0%', '10(8.00)', '0(0.00)']],
-        total: ['Score Final', '8.00', '2.00'],
+        head: [['Critério', 'Peso', 'Alternativas'], ['B', 'A']],
+        rows: [['Custo', '20.0%', '0', '10'], ['Prazo', '80.0%', '10', '0']],
+        total: ['TOTAL (Somatória)', '100%', '8.00', '2.00'],
     }, 'matriz');
+});
+
+test('Matriz destaca melhor e pior score, incluindo empates e notas iguais', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2', 'C3'], ['A', 'B', 'C']);
+    score(w, 'A', 9, 'C', 3);
+    card(w, 'Entre "A" e "C"').click();
+    el(w, 'positionScore').value = 5;
+    button(w, 'Definir Score').click();
+    goToCriterion(w, 1);
+    score(w, 'A', 8, 'C', 2, ['A']);
+    goToCriterion(w, 2);
+    score(w, 'A', 5, 'B', 5, ['A']);
+    await w.nextStep();
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    // C1: 9 e 3. C2: B empata com A em 8, e C é 2. C3: todas iguais, sem destaque.
+    equal(highlights(w, 'matrix-best'), ['9', '8', '8'], 'melhores');
+    equal(highlights(w, 'matrix-worst'), ['3', '2'], 'piores');
+    equal(el(w, 'dynamicMatrix').querySelector('td.matrix-best').title, 'Melhor score do critério', 'descrição');
+    equal(w.document.querySelector('.matrix-legend').textContent.includes('Pior score do critério'), true, 'legenda');
 });
 
 test('Matriz escapa os nomes e aparece igual no relatório', async () => {
@@ -1809,6 +1858,7 @@ test('Matriz escapa os nomes e aparece igual no relatório', async () => {
     action(w, 'printReport').click();
     const report = [...el(w, 'printReport').querySelectorAll('table')].find(t => t.querySelector('tfoot'));
     equal(report.querySelector('thead').textContent, el(w, 'dynamicMatrix').querySelector('thead').textContent, 'relatório');
+    equal(el(w, 'printReport').querySelector('.matrix-legend') !== null, true, 'legenda no relatório');
 });
 
 test('Passo final se chama Tomada de Decisão em toda a interface', async () => {
