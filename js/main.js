@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', function() {
     receiveMigratedAnalyses(location.hash);
     migrateLegacyAnalyses();
     renderSavedAnalyses();
+    renderExamples();
+    syncDisplayToggles();
+    refreshShell();
 });
 
 function resetApp() {
@@ -45,8 +48,7 @@ function resetApp() {
     updateCriteriaList();
     updateAlternativesList();
     showStep(1);
-    setApiConfigCollapsed(false);
-    setSaveStatus('💾 Defina um título para salvar sua análise automaticamente');
+    setSaveStatus('Defina um título para salvar automaticamente');
 }
 
 function restart() {

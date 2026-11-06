@@ -2,20 +2,20 @@ function salvarChaveAPI() {
     const apiKey = document.getElementById('apiKey').value.trim();
     
     if (!apiKey) {
-        atualizarStatusAPI('error', '❌ Por favor, insira uma chave da API');
+        atualizarStatusAPI('error', 'Insira uma chave da API.');
         return;
     }
     
     // Validação básica do formato da chave (removida verificação de 'AIza' pois o Google pode mudar o prefixo)
     if (apiKey.length < 20) {
-        atualizarStatusAPI('error', '❌ Formato de chave inválido');
+        atualizarStatusAPI('error', 'Formato de chave inválido.');
         return;
     }
     
     // Salvar no localStorage
     localStorage.setItem('gemini_api_key', apiKey);
     
-    atualizarStatusAPI('success', '✅ Chave da API salva com sucesso');
+    atualizarStatusAPI('success', 'Chave da API salva.');
     
     // Limpar o campo por segurança
     document.getElementById('apiKey').value = '';
@@ -24,7 +24,7 @@ function salvarChaveAPI() {
 function limparAPI() {
     localStorage.removeItem('gemini_api_key');
     document.getElementById('apiKey').value = '';
-    atualizarStatusAPI('warning', '⚠️ Configure sua chave da API do Gemini para receber sugestões automáticas de critérios');
+    atualizarStatusAPI('warning', 'Nenhuma chave configurada. As sugestões de critérios por IA estão desligadas.');
 }
 
 function atualizarStatusAPI(tipo, mensagem) {
@@ -42,7 +42,7 @@ function atualizarStatusAPI(tipo, mensagem) {
 document.addEventListener('DOMContentLoaded', function() {
     const savedKey = localStorage.getItem('gemini_api_key');
     if (savedKey) {
-        atualizarStatusAPI('success', '✅ Chave da API carregada e configurada');
+        atualizarStatusAPI('success', 'Chave da API configurada.');
     }
 });
 

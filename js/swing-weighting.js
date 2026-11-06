@@ -22,7 +22,7 @@ function renderRankSumForm() {
         .join('');
 
     const rows = state.criteria.map(criterion => `
-        <div style="margin: 10px 0;">
+        <div class="my-3">
             <label for="ranksum_${criterion.id}">${escapeHtml(criterion.name)}:</label>
             <select id="ranksum_${criterion.id}" data-change="updateRankSumWeights">
                 <option value="">Selecione a posição...</option>
@@ -33,7 +33,7 @@ function renderRankSumForm() {
 
     return `
         <div class="form-group">
-            <div class="orientation-box" style="margin-bottom: 1rem;">
+            <div class="orientation-box mb-4">
                 <strong>Método Rank-Sum</strong>
                 Ordene os critérios pela sua importância relativa. O objetivo que ocupa a posição mais alta é o de maior preferência. Os pesos são calculados automaticamente usando a fórmula Rank-Sum.
             </div>
@@ -50,16 +50,16 @@ function renderSwingForm() {
 
     return `
         <div class="form-group">
-            <div class="orientation-box" style="margin-bottom: 1rem;">
+            <div class="orientation-box mb-4">
                 <strong>Método Swing (Swing Weighting)</strong>
                 Imagine um cenário em que <em>todos</em> os critérios estão no pior valor possível. Se você pudesse melhorar apenas <em>um</em> critério para o seu melhor valor, qual escolheria? Esse é o critério de maior impacto e recebe 100 pontos. Os demais são comparados relativamente a ele (0–100). Ao final, os pesos são normalizados para somar 100%.
             </div>
 
             <div id="worstAlternativeSummary">${renderWorstAlternativeTable()}</div>
 
-            <div style="margin: 15px 0;">
+            <div class="my-4">
                 <label for="mostImportant"><strong>Passo 2: Qual é o critério mais importante?</strong></label>
-                <p style="color: var(--text-soft); font-size: 13px; margin: 5px 0;">
+                <p class="hint">
                     Selecione o critério que causará maior impacto ao ser melhorado do pior cenário para a melhor performance.
                 </p>
                 <select id="mostImportant" data-change="updateSwingWeightingInterface">
@@ -68,7 +68,7 @@ function renderSwingForm() {
                 </select>
             </div>
             <div id="swingWeightingComparisons"></div>
-            <div id="swingWeightingSummary" style="margin-top: 15px;"></div>
+            <div class="mt-4" id="swingWeightingSummary"></div>
         </div>
     `;
 }
@@ -78,14 +78,14 @@ function renderWorstAlternativeTable() {
         const worstScore = state.comparisonData[criterion.id]?.worstScore;
         return `
             <tr>
-                <td style="border: 1px solid #fecaca; padding: 8px;">${escapeHtml(criterion.name)}</td>
-                <td style="border: 1px solid #fecaca; padding: 8px;">
-                    <input type="number" id="worstValue_${criterion.id}" step="any" placeholder="Digite o pior valor"
+                <td class="tcell">${escapeHtml(criterion.name)}</td>
+                <td class="tcell">
+                    <input class="input-compact" type="number" id="worstValue_${criterion.id}" step="any" placeholder="Digite o pior valor"
                            aria-label="Pior valor de ${escapeHtml(criterion.name)}"
                            data-change="validateWorstAlternative"
-                           style="width: 100px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;">
+                          >
                 </td>
-                <td style="border: 1px solid #fecaca; padding: 8px; color: #6b7280; font-size: 11px;">
+                <td class="tcell muted-xs">
                     ${worstScore !== undefined ? `Pior encontrado: ${worstScore}` : 'N/A'}
                 </td>
             </tr>
@@ -93,21 +93,21 @@ function renderWorstAlternativeTable() {
     }).join('');
 
     return `
-        <div style="margin: 15px 0; padding: 15px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 5px;">
+        <div class="subpanel">
             <h4>Passo 1: Definir Alternativa Hipotética com Piores Valores</h4>
-            <p style="color: #7f1d1d; font-size: 12px; margin-bottom: 15px;">
+            <p class="hint">
                 Defina os valores que representam o <strong>pior cenário possível</strong> para cada critério.
                 Esta alternativa servirá como base de comparação para estabelecer os pesos.
             </p>
-            <div class="table-scroll"><table style="width: 100%; border-collapse: collapse;">
-                <tr style="background: #fee2e2;">
-                    <th style="border: 1px solid #fecaca; padding: 8px; text-align: left;">Critério</th>
-                    <th style="border: 1px solid #fecaca; padding: 8px; text-align: left;">Valor do Pior Cenário</th>
-                    <th style="border: 1px solid #fecaca; padding: 8px; text-align: left;">Sugestão</th>
+            <div class="table-scroll"><table class="data-table">
+                <tr>
+                    <th class="tcell">Critério</th>
+                    <th class="tcell">Valor do Pior Cenário</th>
+                    <th class="tcell">Sugestão</th>
                 </tr>
                 ${rows}
             </table></div>
-            <div id="worstAlternativeStatus" style="margin-top: 10px;"></div>
+            <div class="mt-3" id="worstAlternativeStatus"></div>
         </div>
     `;
 }
@@ -196,11 +196,11 @@ function validateWorstAlternative() {
 
     const complete = isWorstAlternativeComplete();
     document.getElementById('worstAlternativeStatus').innerHTML = complete
-        ? `<div style="padding: 8px; background: #dcfce7; border: 1px solid #86efac; border-radius: 3px; color: #166534;">
-               ✓ Alternativa hipotética completa. Você pode prosseguir para o Passo 2.
+        ? `<div class="status-line status-ok">
+               ${icon('circle-check')} Alternativa hipotética completa. Você pode prosseguir para o Passo 2.
            </div>`
-        : `<div style="padding: 8px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; color: #92400e;">
-               ⚠ Complete todos os valores antes de prosseguir para o Passo 2.
+        : `<div class="status-line status-warn">
+               ${icon('triangle-alert')} Complete todos os valores antes de prosseguir para o Passo 2.
            </div>`;
 }
 
@@ -236,26 +236,26 @@ function updateSwingWeightingInterface() {
             const name = escapeHtml(criterion.name);
             const worstValue = escapeHtml(document.getElementById(`worstValue_${criterion.id}`).value);
             return `
-                <div style="margin: 10px 0; padding: 10px; border: 1px solid #e5e7eb; border-radius: 5px;">
+                <div class="field-card">
                     <label for="swingweight_${criterion.id}"><strong>${name}</strong></label>
-                    <p style="font-size: 12px; color: #6b7280; margin: 5px 0;">
+                    <p class="hint">
                         Qual o impacto de melhorar "${name}" do valor ${worstValue} para a melhor performance,
                         comparado ao mesmo tipo de melhoria em "${mostImportantName}"?
                     </p>
-                    <input type="number" id="swingweight_${criterion.id}" min="0" max="100" step="1" placeholder="0-100"
-                           data-change="updateSwingWeightingWeights" style="width: 80px; padding: 5px;">
+                    <input class="input-compact" type="number" id="swingweight_${criterion.id}" min="0" max="100" step="1" placeholder="0-100"
+                           data-change="updateSwingWeightingWeights">
                     <span>% do impacto de ${mostImportantName}</span>
                 </div>
             `;
         }).join('');
 
     comparisons.innerHTML = `
-        <div style="margin: 15px 0;">
+        <div class="my-4">
             <h4>Comparações de Impacto (Passos 3-4)</h4>
-            <div style="padding: 10px; background: #f0f9ff; border-radius: 5px; margin-bottom: 10px;">
+            <div class="info-line">
                 <strong>${mostImportantName}</strong> = 100 (Critério mais importante - Passo 2)
             </div>
-            <p style="color: #64748b; font-size: 12px; margin-bottom: 15px;">
+            <p class="hint">
                 Para cada critério abaixo, considere o impacto de melhorar da pior para a melhor performance
                 comparado ao mesmo tipo de melhoria no critério mais importante.
             </p>
@@ -299,12 +299,11 @@ function updateSwingWeightingWeights() {
 }
 
 function renderSwingSummary(rawWeights, valid) {
-    const cell = 'border: 1px solid #ddd; padding: 8px;';
     const rows = state.criteria.map(criterion => `
         <tr>
-            <td style="${cell}">${escapeHtml(criterion.name)}</td>
-            <td style="${cell}">${rawWeights[criterion.id] ?? 0}</td>
-            <td style="${cell}">${((state.weights[criterion.id] ?? 0) * 100).toFixed(1)}%</td>
+            <td class="tcell">${escapeHtml(criterion.name)}</td>
+            <td class="tcell">${rawWeights[criterion.id] ?? 0}</td>
+            <td class="tcell">${((state.weights[criterion.id] ?? 0) * 100).toFixed(1)}%</td>
         </tr>
     `).join('');
 
@@ -312,17 +311,17 @@ function renderSwingSummary(rawWeights, valid) {
 
     document.getElementById('swingWeightingSummary').innerHTML = `
         <h4>Resumo dos Pesos (Passo 5: Normalização)</h4>
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-            <tr style="background: #f8fafc;">
-                <th style="${cell}">Critério</th>
-                <th style="${cell}">Peso Bruto</th>
-                <th style="${cell}">Peso Normalizado</th>
+        <div class="table-scroll mt-3"><table class="data-table">
+            <tr>
+                <th class="tcell">Critério</th>
+                <th class="tcell">Peso Bruto</th>
+                <th class="tcell">Peso Normalizado</th>
             </tr>
             ${rows}
-        </table>
+        </table></div>
         ${valid ? `
-            <p style="margin-top: 10px; font-weight: bold;">Total dos pesos normalizados: ${(total * 100).toFixed(1)}%</p>
-            <p style="margin-top: 5px; color: #64748b; font-size: 12px;">
+            <p class="mt-3 fw-700">Total dos pesos normalizados: ${(total * 100).toFixed(1)}%</p>
+            <p class="hint">
                 Passo 6: Utilize estes pesos normalizados para calcular a utilidade total de cada alternativa.
             </p>
         ` : ''}

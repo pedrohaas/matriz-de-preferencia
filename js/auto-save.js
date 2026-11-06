@@ -24,6 +24,7 @@ function writeSavedAnalyses(analyses) {
 function scheduleAutoSave() {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(flushAutoSave, AUTO_SAVE_DELAY_MS);
+    refreshShell();
 }
 
 // Grava imediatamente o que estiver pendente. Sem título, ainda não há o que salvar.
@@ -41,20 +42,22 @@ function flushAutoSave() {
         writeSavedAnalyses(analyses);
     } catch (error) {
         console.error('Erro ao salvar:', error);
-        setSaveStatus('⚠️ Não foi possível salvar. O armazenamento do navegador pode estar cheio.');
+        setSaveStatus('Não foi possível salvar. O armazenamento do navegador pode estar cheio.', 'error');
         return;
     }
 
     lastSavedSnapshot = snapshot;
-    setSaveStatus(`💾 Salvo automaticamente às ${new Date(savedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
-    if (state.currentStep === 1) renderSavedAnalyses();
+    setSaveStatus(`Salvo às ${new Date(savedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+    renderSavedAnalyses();
 }
 
 // Não perde a última alteração ao fechar ou recarregar a página
 window.addEventListener('pagehide', flushAutoSave);
 
-function setSaveStatus(text) {
-    document.getElementById('saveStatus').textContent = text;
+function setSaveStatus(text, tone = '') {
+    const status = document.getElementById('saveStatus');
+    status.textContent = text;
+    status.dataset.tone = tone;
 }
 
 // Último passo que os dados permitem abrir
@@ -106,7 +109,7 @@ function loadAnalysis(analysis, step) {
     // Apenas abrir uma análise não conta como alteração
     clearTimeout(autoSaveTimeout);
     lastSavedSnapshot = JSON.stringify(state);
-    setSaveStatus('💾 Alterações nesta análise são salvas automaticamente');
+    setSaveStatus('Salvamento automático ativo');
 }
 
 function openAnalysis(id) {
@@ -162,7 +165,7 @@ function renderSavedAnalyses() {
                     <small>Salva em ${escapeHtml(dateLabel)} · Etapa: ${escapeHtml(stepName)} · ${analysis?.criteria?.length ?? 0} critério(s), ${analysis?.alternatives?.length ?? 0} alternativa(s)</small>
                 </div>
                 <div class="saved-analysis-actions">
-                    ${isCurrent ? '' : `<button class="btn btn-primary btn-small" data-action="openAnalysis" data-id="${escapeHtml(id)}" aria-label="Abrir ${escapeHtml(analysis?.problemTitle ?? 'Sem título')}">Abrir</button>`}
+                    <button class="btn btn-primary btn-small" data-action="openAnalysis" data-id="${escapeHtml(id)}" aria-label="Abrir ${escapeHtml(analysis?.problemTitle ?? 'Sem título')}">${isCurrent ? 'Continuar' : 'Abrir'}</button>
                     <button class="remove-btn" data-action="deleteAnalysis" data-id="${escapeHtml(id)}" aria-label="Excluir ${escapeHtml(analysis?.problemTitle ?? 'Sem título')}">Excluir</button>
                 </div>
             </div>

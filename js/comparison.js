@@ -30,50 +30,46 @@ function renderCriterionNav() {
     const buttons = state.criteria.map((criterion, index) => {
         const done = isComplete(criterion.id);
         const isCurrent = index === state.currentCriterionIndex;
-        const buttonStyle = isCurrent
-            ? 'background:var(--primary);color:#fff;border:2px solid var(--primary);'
-            : done
-                ? 'background:var(--success, #22c55e);color:#fff;border:2px solid var(--success, #22c55e);'
-                : 'background:var(--bg);color:var(--text-dark);border:2px solid var(--border);';
+        const stateClass = isCurrent ? 'is-current' : done ? 'is-done' : '';
         const label = criterion.name.length > 15 ? `${criterion.name.slice(0, 13)}…` : criterion.name;
 
-        return `<button data-action="goToCriterion" data-id="${criterion.id}" style="${buttonStyle} padding:5px 12px; border-radius:20px; font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;" title="${escapeHtml(criterion.name)}">${index + 1}. ${escapeHtml(label)}${done && !isCurrent ? ' ✓' : ''}</button>`;
+        return `<button data-action="goToCriterion" data-id="${criterion.id}" class="criterion-chip ${stateClass}" ${isCurrent ? 'aria-current="true"' : ''} title="${escapeHtml(criterion.name)}">${index + 1}. ${escapeHtml(label)}${done && !isCurrent ? ` ${icon('check', { label: 'concluído' })}` : ''}</button>`;
     }).join('');
 
-    return `<div class="criterion-nav" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:1.25rem;">${buttons}</div>`;
+    return `<div class="criterion-nav">${buttons}</div>`;
 }
 
-function renderManagementColumn(title, items, removeAction, borderColor) {
+function renderManagementColumn(title, items, removeAction) {
     const rows = items.map((item, index) => `
-        <div style="display:flex; align-items:center; justify-content:space-between; background:white; padding:8px 10px; border-radius:6px; border-left:3px solid var(${borderColor}); font-size:0.88rem;">
+        <div class="management-item">
             <span>${index + 1}. ${escapeHtml(item.name)}</span>
             ${items.length > 2
-                ? `<button class="remove-btn" data-action="${removeAction}" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.name)}" style="font-size:0.75rem; padding:3px 8px;">🗑️</button>`
-                : '<span style="font-size:0.72rem; color:var(--text-soft);">mín.</span>'}
+                ? `<button class="icon-btn icon-btn-danger" data-action="${removeAction}" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.name)}">${icon('trash-2')}</button>`
+                : '<span class="muted-xs">mín.</span>'}
         </div>
     `).join('');
 
     return `
         <div>
-            <h4 style="color:var(--primary); margin-bottom:8px; font-size:0.95rem;">${title} (${items.length})</h4>
-            <div style="display:flex; flex-direction:column; gap:6px;">${rows}</div>
+            <h4 class="panel-title">${title} (${items.length})</h4>
+            <div class="stack-2">${rows}</div>
         </div>
     `;
 }
 
 function renderManagementPanel() {
     return `
-        <div class="management-panel" style="margin-bottom:1.25rem;">
-            <button type="button" data-action="toggleManagementPanel" aria-expanded="false" aria-controls="managementPanelContent" class="btn btn-secondary btn-small" style="font-size:0.82rem; padding:6px 14px;">
-                ⚙️ Gerenciar Critérios e Alternativas
+        <div class="management-panel">
+            <button type="button" data-action="toggleManagementPanel" aria-expanded="false" aria-controls="managementPanelContent" class="btn btn-secondary btn-small">
+                ${icon('settings')} Gerenciar critérios e alternativas
             </button>
-            <div id="managementPanelContent" style="display:none; margin-top:12px; padding:16px; background:var(--white); border:2px solid var(--border); border-radius:var(--radius-md);">
+            <div class="management-content" id="managementPanelContent" style="display:none;">
                 <div class="management-grid">
-                    ${renderManagementColumn('📋 Critérios', state.criteria, 'removeCriterionFromStep3', '--secondary')}
-                    ${renderManagementColumn('🏷️ Alternativas', state.alternatives, 'removeAlternativeFromStep3', '--primary')}
+                    ${renderManagementColumn('Critérios', state.criteria, 'removeCriterionFromStep3')}
+                    ${renderManagementColumn('Alternativas', state.alternatives, 'removeAlternativeFromStep3')}
                 </div>
-                <p style="margin-top:10px; font-size:0.78rem; color:var(--text-soft); font-style:italic;">
-                    ⚠️ Ao remover um critério ou alternativa, os scores associados serão recalculados. Mínimo: 2 critérios e 2 alternativas.
+                <p class="note">
+                    Ao remover um critério ou alternativa, os scores associados serão recalculados. Mínimo: 2 critérios e 2 alternativas.
                 </p>
             </div>
         </div>
@@ -93,9 +89,9 @@ function renderAlternativeCards(action, excludedId = null) {
 
 function renderSelectBest(criterionName_) {
     return `
-        <div style="margin: 20px 0;">
+        <div class="stage">
             <h4>1. Qual alternativa é a MELHOR para o critério "${criterionName_}"?</h4>
-            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">Selecione a alternativa com melhor desempenho neste critério.</p>
+            <p class="hint">Selecione a alternativa com melhor desempenho neste critério.</p>
             ${renderAlternativeCards('selectBest')}
         </div>
     `;
@@ -104,16 +100,16 @@ function renderSelectBest(criterionName_) {
 function renderBestScoreInput(entry) {
     const best = escapeHtml(alternativeName(entry.best));
     return `
-        <div style="margin: 20px 0;">
-            <div class="success-message">✅ Melhor alternativa selecionada: <strong>${best}</strong></div>
+        <div class="stage">
+            <div class="success-message">${icon('circle-check')} Melhor alternativa selecionada: <strong>${best}</strong></div>
             <h4>2. Defina o score da melhor alternativa — Âncora Superior:</h4>
-            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">
+            <p class="hint">
                 Atribua um score máximo (entre 0 e 10) para <strong>${best}</strong>, que representa o melhor desempenho neste critério.
             </p>
             <div class="form-group">
                 <label for="bestScore">Score para "${best}" (0 a 10):</label>
                 <input type="number" id="bestScore" data-enter="setBestScore" min="0" max="10" placeholder="Ex: 10" step="0.1">
-                <button class="btn btn-primary" style="margin-top: 8px;" data-action="setBestScore">Confirmar</button>
+                <button class="btn btn-primary mt-2" data-action="setBestScore">Confirmar</button>
             </div>
         </div>
     `;
@@ -121,10 +117,10 @@ function renderBestScoreInput(entry) {
 
 function renderSelectWorst(entry, criterionName_) {
     return `
-        <div style="margin: 20px 0;">
-            <div class="success-message">✅ Melhor: ${escapeHtml(alternativeName(entry.best))} → Score ${entry.bestScore}</div>
+        <div class="stage">
+            <div class="success-message">${icon('circle-check')} Melhor: ${escapeHtml(alternativeName(entry.best))} → Score ${entry.bestScore}</div>
             <h4>3. Qual alternativa é a PIOR para o critério "${criterionName_}"?</h4>
-            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">Selecione a alternativa com pior desempenho neste critério.</p>
+            <p class="hint">Selecione a alternativa com pior desempenho neste critério.</p>
             ${renderAlternativeCards('selectWorst', entry.best)}
         </div>
     `;
@@ -133,17 +129,17 @@ function renderSelectWorst(entry, criterionName_) {
 function renderWorstScoreInput(entry) {
     const worst = escapeHtml(alternativeName(entry.worst));
     return `
-        <div style="margin: 20px 0;">
-            <div class="success-message">✅ Melhor: ${escapeHtml(alternativeName(entry.best))} → Score ${entry.bestScore}</div>
-            <div class="success-message">✅ Pior alternativa selecionada: <strong>${worst}</strong></div>
+        <div class="stage">
+            <div class="success-message">${icon('circle-check')} Melhor: ${escapeHtml(alternativeName(entry.best))} → Score ${entry.bestScore}</div>
+            <div class="success-message">${icon('circle-check')} Pior alternativa selecionada: <strong>${worst}</strong></div>
             <h4>4. Defina o score da pior alternativa — Âncora Inferior:</h4>
-            <p style="color: var(--text-soft); font-size: 0.9rem; margin-bottom: 10px;">
+            <p class="hint">
                 Atribua um score mínimo (entre 0 e ${entry.bestScore}) para <strong>${worst}</strong>.
             </p>
             <div class="form-group">
                 <label for="worstScore">Score para "${worst}" (0 a ${entry.bestScore}):</label>
                 <input type="number" id="worstScore" data-enter="setWorstScore" min="0" max="${entry.bestScore}" placeholder="Ex: 0" step="0.1">
-                <button class="btn btn-primary" style="margin-top: 8px;" data-action="setWorstScore">Confirmar</button>
+                <button class="btn btn-primary mt-2" data-action="setWorstScore">Confirmar</button>
             </div>
         </div>
     `;
@@ -157,8 +153,8 @@ function renderPositionScoreInput(entry) {
     const alternative = escapeHtml(alternativeName(position.alternative));
 
     return `
-        <div style="margin: 20px 0;">
-            <div class="success-message">✅ Posição selecionada: Entre "${escapeHtml(alternativeName(position.higher))}" e "${escapeHtml(alternativeName(position.lower))}"</div>
+        <div class="stage">
+            <div class="success-message">${icon('circle-check')} Posição selecionada: Entre "${escapeHtml(alternativeName(position.higher))}" e "${escapeHtml(alternativeName(position.lower))}"</div>
             <h4>Defina o score para "${alternative}":</h4>
             <div class="form-group">
                 <label for="positionScore">Score para "${alternative}" (${minScore} - ${maxScore}):</label>
@@ -197,7 +193,7 @@ function renderPositionOptions(alternativeId, ranked) {
         if (higher.score !== lower.score) {
             options += `
                 <button type="button" class="alternative-card" data-action="selectPositionBetween" data-alternative="${alternativeId}" data-higher="${higher.id}" data-lower="${lower.id}">
-                    <span class="position-label">📊 Entre "${escapeHtml(higher.name)}" e "${escapeHtml(lower.name)}" </span>
+                    <span class="position-label">${icon('layers')} Entre "${escapeHtml(higher.name)}" e "${escapeHtml(lower.name)}" </span>
                     <span class="position-description">Range: ${lower.score} - ${higher.score}</span>
                 </button>
             `;
@@ -208,7 +204,7 @@ function renderPositionOptions(alternativeId, ranked) {
     ranked.forEach(item => {
         options += `
             <button type="button" class="alternative-card" data-action="setSameLevel" data-alternative="${alternativeId}" data-reference="${item.id}">
-                <span class="position-label">⚖️ Mesmo nível de "${escapeHtml(item.name)}"</span>
+                <span class="position-label">${icon('scale')} Mesmo nível de "${escapeHtml(item.name)}"</span>
                 <span class="position-description">Score igual: ${item.score}</span>
             </button>
         `;
@@ -220,12 +216,12 @@ function renderPositionOptions(alternativeId, ranked) {
 function renderPlacement(entry, nextAlternativeId, criterionName_) {
     const ranked = getRankedAlternatives(entry);
     return `
-        <div style="margin: 20px 0;">
+        <div class="stage">
             <div class="ranking-display">
-                <h4>🏆 Ranking atual para "${criterionName_}"</h4>
+                <h4>${icon('trophy')} Ranking atual para "${criterionName_}"</h4>
                 ${renderRankingRows(ranked, 'ranking-item')}
             </div>
-            <h4>📍 Onde posicionar "${escapeHtml(alternativeName(nextAlternativeId))}"?</h4>
+            <h4>${icon('pin')} Onde posicionar "${escapeHtml(alternativeName(nextAlternativeId))}"?</h4>
             <p>Escolha a posição mais adequada comparando com as alternativas já avaliadas:</p>
             <div class="position-options">${renderPositionOptions(nextAlternativeId, ranked)}</div>
         </div>
@@ -243,24 +239,24 @@ function renderCriterionDone(entry, criterionId, criterionName_) {
     let guidance;
     if (pending.length === 0) {
         guidance = `
-            <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #edf7f2, #d8f0e4); border-left: 4px solid var(--success); border-radius: var(--radius-sm);">
-                <strong style="color: var(--success); display: block; margin-bottom: 4px;">🎉 Todos os critérios foram avaliados!</strong>
+            <div class="callout callout-success">
+                <strong class="callout-title">${icon('circle-check')} Todos os critérios foram avaliados!</strong>
                 Use o botão <strong>"Passo 4 →"</strong> abaixo para continuar para a atribuição de pesos.
             </div>
-            <div style="margin-top:10px;">${resetButton}</div>
+            <div class="mt-3">${resetButton}</div>
         `;
     } else {
         const pendingLinks = pending.map(c => `
-            <button data-action="goToCriterion" data-id="${c.id}" style="background:var(--secondary);color:#fff;border:none;padding:4px 10px;border-radius:12px;font-size:0.82rem;font-weight:600;cursor:pointer;margin:2px;">${state.criteria.indexOf(c) + 1}. ${escapeHtml(c.name)}</button>
+            <button class="chip-btn" data-action="goToCriterion" data-id="${c.id}">${state.criteria.indexOf(c) + 1}. ${escapeHtml(c.name)}</button>
         `).join(' ');
 
         guidance = `
-            <div style="margin-top: 14px; padding: 14px; background: linear-gradient(135deg, #fef9ec, #fef3c7); border-left: 4px solid #f59e0b; border-radius: var(--radius-sm);">
-                <strong style="color: #92400e; display: block; margin-bottom: 6px;">⚠️ Critério concluído, mas ainda faltam outros:</strong>
-                <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">${pendingLinks}</div>
-                <span style="font-size:0.82rem; color:#92400e;">Clique em um critério pendente acima ou use o painel de navegação no topo.</span>
+            <div class="callout callout-warning">
+                <strong class="callout-title">${icon('triangle-alert')} Critério concluído, mas ainda faltam outros:</strong>
+                <div class="cluster">${pendingLinks}</div>
+                <span class="callout-note">Clique em um critério pendente acima ou use o painel de navegação no topo.</span>
             </div>
-            <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+            <div class="actions-row">
                 <button class="btn btn-primary" data-action="goToCriterion" data-id="${pending[0].id}">Ir para próximo pendente →</button>
                 ${resetButton}
             </div>
@@ -268,10 +264,10 @@ function renderCriterionDone(entry, criterionId, criterionName_) {
     }
 
     return `
-        <div style="margin: 20px 0;">
-            <div class="success-message">✅ Avaliação completa para "${criterionName_}"!</div>
+        <div class="stage">
+            <div class="success-message">${icon('circle-check')} Avaliação completa para "${criterionName_}"!</div>
             <div class="final-ranking">
-                <h4>🏆 Ranking final para "${criterionName_}"</h4>
+                <h4>${icon('trophy')} Ranking final para "${criterionName_}"</h4>
                 ${renderRankingRows(getRankedAlternatives(entry), 'ranking-item final')}
             </div>
             ${guidance}
@@ -315,7 +311,7 @@ function showComparisonForCriterion() {
     // (com o critério concluído, o bloco final já oferece este botão)
     if (entry.best && !isComplete(criterionId)) {
         html += `
-            <div style="margin-top: 10px;">
+            <div class="mt-3">
                 <button class="btn btn-secondary" data-action="resetCurrentCriterion" title="Refazer os scores deste critério">
                     ↺ Reiniciar este Critério
                 </button>
