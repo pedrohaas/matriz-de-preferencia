@@ -815,6 +815,37 @@
     .chip-btn { padding: var(--space-1) var(--space-3); background: var(--bg-surface); border: 1px solid currentColor; border-radius: var(--radius-pill); color: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
 
     /* Passo 4: pesos */
+    .method-intro { margin: var(--space-4) 0 var(--space-5); padding: var(--space-4); background: var(--bg-surface); border: 1px solid var(--border); border-left: 4px solid var(--brand-600); border-radius: var(--radius-md); }
+    .method-intro h3 { margin-bottom: var(--space-2); font-size: var(--text-lg); }
+    .method-intro p { color: var(--gray-800); font-size: var(--text-sm); }
+    .weighting-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 15rem); gap: var(--space-5); align-items: start; }
+    .weights-preview { position: sticky; top: calc(var(--header-height) + var(--space-4)); padding: var(--space-4); background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+    .weights-preview h4 { margin-bottom: var(--space-3); font-size: var(--text-sm); }
+    .weight-bars { display: flex; flex-direction: column; gap: var(--space-3); }
+    .weight-bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-2); font-size: var(--text-sm); }
+    .weight-bar-name { overflow-wrap: anywhere; }
+    .weight-bar-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .weight-bar-track { grid-column: 1 / -1; height: 6px; overflow: hidden; background: var(--gray-100); border-radius: var(--radius-pill); }
+    .weight-bar-fill { display: block; height: 100%; background: var(--brand-600); border-radius: var(--radius-pill); }
+    .rank-list { display: flex; flex-direction: column; gap: var(--space-2); }
+    .rank-row { display: grid; grid-template-columns: minmax(0, 1fr) 9rem; gap: var(--space-3); align-items: center; padding: var(--space-2) var(--space-3); background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+    .rank-row label { margin: 0; overflow-wrap: anywhere; }
+    .rank-row select { min-height: 2.25rem; padding: var(--space-1) var(--space-2); }
+    .swing-ranges { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); list-style: none; }
+    .swing-range { display: grid; grid-template-columns: minmax(0, 10rem) minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; font-size: var(--text-sm); }
+    .swing-range-name { overflow-wrap: anywhere; }
+    .swing-range-track { position: relative; height: 8px; background: var(--gray-100); border-radius: var(--radius-pill); }
+    .swing-range-fill { position: absolute; top: 0; bottom: 0; background: var(--brand-600); border-radius: var(--radius-pill); }
+    .swing-range-values { color: var(--text-muted); white-space: nowrap; }
+    .swing-card label { font-weight: 500; }
+    .swing-inputs { display: flex; align-items: center; gap: var(--space-3); }
+    .swing-inputs input[type="range"] { flex: 1; min-width: 0; }
+    @media (max-width: 899px) {
+        .weighting-layout { grid-template-columns: minmax(0, 1fr); }
+        .weights-preview { position: static; }
+        .swing-range { grid-template-columns: minmax(0, 1fr) auto; }
+        .swing-range-track { grid-column: 1 / -1; grid-row: 2; }
+    }
     .data-table { width: 100%; font-size: var(--text-sm); }
     .tcell { padding: var(--space-2) var(--space-3); border: 1px solid var(--border); text-align: left; }
     .data-table tr:first-child .tcell { background: var(--bg-subtle); font-weight: 600; }

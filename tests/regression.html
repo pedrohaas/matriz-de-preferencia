@@ -249,13 +249,15 @@ test('Trocar de método sem preencher o novo não usa os pesos do anterior', asy
     equal(read(w, 'state.currentStep'), 5, 'passo');
 });
 
-test('Posições duplicadas no Rank-Sum impedem o avanço', async () => {
+test('Escolher uma posição ocupada no Rank-Sum troca os critérios de lugar', async () => {
     const w = await load();
     await goToWeights(w);
     rankSum(w, [1, 2, 3]);
-    rankSum(w, [3, 3, 3]);
+    setField(w, `ranksum_${criterionId(w, 'C3')}`, '1', 'change');
+    equal(read(w, 'criterionIds()').map(id => el(w, `ranksum_${id}`).value), ['3', '2', '1'], 'trocados');
     await w.nextStep();
-    equal(read(w, 'state.currentStep'), 5, 'passo');
+    equal(read(w, 'state.currentStep'), 6, 'nunca há posições repetidas');
+    closeWeights(weightsByName(w), { C1: 1 / 6, C2: 2 / 6, C3: 3 / 6 });
 });
 
 test('Remover critério recalcula os pesos para somar 100%', async () => {
@@ -399,17 +401,41 @@ test('Voltar ao passo de pesos preserva o Swing', async () => {
     closeWeights(weightsByName(w), SWING_100_50_25);
 });
 
-test('Swing sugere o pior cenário a partir das âncoras e respeita a edição', async () => {
+test('Swing mostra o intervalo de cada critério e compara melhorias concretas', async () => {
     const w = await load();
     await goToWeights(w);
     selectMethod(w, 'swingweighting');
-    const id = criterionId(w, 'C1');
-    equal(el(w, `worstValue_${id}`).value, '2', 'valor sugerido');
-    equal(w.document.getElementById('worstAlternativeSummary').textContent.includes('Pior encontrado: 2'), true, 'texto');
-    setField(w, `worstValue_${id}`, '1', 'change');
-    selectMethod(w, 'ranksum');
+    const ranges = [...w.document.querySelectorAll('.swing-range')].map(r => r.textContent.replace(/\s+/g, ' ').trim());
+    equal(ranges, ['C1 de 2 a 10', 'C2 de 2 a 10', 'C3 de 2 a 10'], 'intervalos');
+    equal(w.document.querySelectorAll('[id^="worstValue_"]').length, 0, 'sem tabela de alternativa hipotética');
+    const [first, second] = read(w, 'criterionIds()');
+    setField(w, 'mostImportant', first, 'change');
+    equal(w.document.querySelector(`label[for="swingweight_${second}"]`).textContent, 'Melhorar C2 de 2 para 10 vale quanto, comparado a melhorar C1 de 2 para 10?', 'pergunta');
+});
+
+test('Controle deslizante do Swing e campo numérico ficam sincronizados', async () => {
+    const w = await load();
+    await goToWeights(w);
     selectMethod(w, 'swingweighting');
-    equal(el(w, `worstValue_${id}`).value, '1', 'valor editado');
+    const [first, second, third] = read(w, 'criterionIds()');
+    setField(w, 'mostImportant', first, 'change');
+    setField(w, `swingrange_${second}`, '60');
+    equal(el(w, `swingweight_${second}`).value, '60', 'número segue o controle');
+    setField(w, `swingweight_${third}`, '20', 'change');
+    equal(el(w, `swingrange_${third}`).value, '20', 'controle segue o número');
+    closeWeights(weightsByName(w), { C1: 100 / 180, C2: 60 / 180, C3: 20 / 180 });
+    const bars = [...w.document.querySelectorAll('#swingWeightingSummary .weight-bar-value')].map(e => e.textContent);
+    equal(bars, ['55.6%', '33.3%', '11.1%'], 'barras de pesos');
+});
+
+test('Rank-Sum mostra os pesos resultantes ao completar a ordem', async () => {
+    const w = await load();
+    await goToWeights(w);
+    selectMethod(w, 'ranksum');
+    equal(el(w, 'weightsPreview').textContent.includes('assim que o formulário estiver completo'), true, 'incompleto');
+    rankSum(w, [2, 1, 3]);
+    const bars = [...w.document.querySelectorAll('#weightsPreview .weight-bar-value')].map(e => e.textContent);
+    equal(bars, ['33.3%', '50.0%', '16.7%'], 'pesos');
 });
 
 test('Trocar o critério mais importante do Swing descarta os impactos', async () => {
@@ -1960,7 +1986,7 @@ test('Dica do passo de pesos acompanha o formulário', async () => {
     selectMethod(w, 'ranksum');
     equal(hint(w, 5), 'Falta: posição de 3 critérios', 'sem posições');
     rankSum(w, [1, 1, 2]);
-    equal(hint(w, 5), 'Há posições repetidas', 'repetidas');
+    equal(hint(w, 5), 'Falta: posição de 1 critério', 'posição repetida vira troca');
     rankSum(w, [1, 2, 3]);
     equal(hint(w, 5).startsWith('Pronto'), true, 'pronto');
     selectMethod(w, 'swingweighting');
