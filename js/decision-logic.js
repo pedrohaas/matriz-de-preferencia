@@ -420,6 +420,132 @@ function renderSensitivity() {
     `;
 }
 
+// ---- Cartão de recomendação ----
+
+function renderRecommendation(finals, sortedIds) {
+    const winners = topAlternatives(finals, sortedIds);
+    const tie = winners.length > 1;
+    const winner = winners[0];
+
+    let margin = '';
+    if (!tie && sortedIds.length > 1) {
+        const second = sortedIds[1];
+        margin = `<p class="recommendation-margin">+${(finals[winner] - finals[second]).toFixed(2)} sobre <strong>${escapeHtml(alternativeName(second))}</strong>, em 2º lugar.</p>`;
+    } else if (tie) {
+        margin = '<p class="recommendation-margin">Empate no 1º lugar. A análise de sensibilidade e os cenários ajudam a desempatar.</p>';
+    }
+
+    const analysis = analyzeSensitivity(criterionIds(), alternativeIds(), state.comparisonData, state.weights);
+    let robustness = '';
+    if (analysis.status === 'ok') {
+        robustness = analysis.closest
+            ? `Menor mudança que troca a vencedora: <strong>${escapeHtml(criterionName(analysis.closest.id))}</strong> de ${formatPercent(analysis.closest.from)} para ${formatPercent(analysis.closest.to)} (${(analysis.closest.change * 100).toFixed(1)} pontos percentuais).`
+            : 'A vencedora se mantém alterando qualquer peso, um de cada vez.';
+    }
+
+    let attention = '';
+    if (!tie) {
+        const weaknesses = findWeaknesses(criterionIds(), alternativeIds(), state.comparisonData, winner);
+        const items = weaknesses.map(w => `
+            <li><strong>${escapeHtml(criterionName(w.id))}</strong>: score ${w.score}, ${w.kind === 'worst' ? 'o pior entre as alternativas' : `abaixo da média (${w.average.toFixed(1)})`}</li>
+        `).join('');
+        attention = `
+            <div class="recommendation-attention">
+                <h4>${icon('triangle-alert')} Pontos de atenção</h4>
+                ${weaknesses.length
+                    ? `<p>Antes de decidir, o livro recomenda avaliar os critérios em que a vencedora foi pior:</p><ul>${items}</ul>`
+                    : '<p>A vencedora não fica abaixo da média em nenhum critério.</p>'}
+            </div>
+        `;
+    }
+
+    return `
+        <div class="recommendation-header">
+            <span class="recommendation-label">Recomendação</span>
+            <div class="export-menu results-export-actions">
+                <button type="button" class="btn btn-secondary btn-small" id="exportMenuButton" data-action="toggleExportMenu" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenuList">${icon('download')} Exportar</button>
+                <div class="export-menu-list" id="exportMenuList" role="menu" hidden>
+                    <button type="button" role="menuitem" data-action="printReport">${icon('printer')} Relatório em PDF</button>
+                    <button type="button" role="menuitem" data-action="saveResultsImage">${icon('image')} Imagem (PNG)</button>
+                    <button type="button" role="menuitem" data-action="saveResults">${icon('braces')} Dados (JSON)</button>
+                </div>
+            </div>
+        </div>
+        <p class="recommendation-name"><span id="topAlternative">${escapeHtml(getRecommendationLabel(finals, sortedIds))}</span><span class="recommendation-score">${finals[winner].toFixed(2)}</span></p>
+        ${margin}
+        ${robustness ? `<p class="recommendation-robustness">${icon('search')}<span>${robustness}</span></p>` : ''}
+        ${attention}
+        <p class="recommendation-meta">Método: <span id="resultsMethod">${escapeHtml(getResultsMethodLabel())}</span> · ${state.criteria.length} critérios · ${state.alternatives.length} alternativas</p>
+    `;
+}
+
+// ---- Abas do resultado ----
+
+const RESULT_TABS = [
+    { id: 'ranking', label: 'Ranking', icon: 'trophy' },
+    { id: 'matrix', label: 'Matriz', icon: 'table' },
+    { id: 'contribution', label: 'Contribuição', icon: 'chart-bar' },
+    { id: 'sensitivity', label: 'Sensibilidade', icon: 'search' },
+    { id: 'scenarios', label: 'Cenários', icon: 'flask-conical' },
+];
+let activeResultTab = 'ranking';
+
+function renderResultTabs() {
+    return RESULT_TABS.map(tab => {
+        const selected = tab.id === activeResultTab;
+        return `<button type="button" role="tab" class="result-tab" id="tab-${tab.id}" aria-controls="panel-${tab.id}" aria-selected="${selected}" tabindex="${selected ? 0 : -1}" data-action="selectResultTab" data-tab="${tab.id}">${icon(tab.icon)} ${tab.label}</button>`;
+    }).join('');
+}
+
+function resultPanel(id, title, content) {
+    const tab = RESULT_TABS.find(t => t.id === id);
+    return `
+        <section class="result-panel" role="tabpanel" id="panel-${id}" aria-labelledby="tab-${id}" tabindex="0" ${id === activeResultTab ? '' : 'hidden'}>
+            <h3 class="panel-heading">${icon(tab.icon)} ${title}</h3>
+            ${content}
+        </section>
+    `;
+}
+
+function selectResultTab(id, focus = false) {
+    activeResultTab = id;
+    RESULT_TABS.forEach(tab => {
+        const button = document.getElementById(`tab-${tab.id}`);
+        const selected = tab.id === id;
+        button.setAttribute('aria-selected', String(selected));
+        button.tabIndex = selected ? 0 : -1;
+        document.getElementById(`panel-${tab.id}`).hidden = !selected;
+    });
+    if (focus) document.getElementById(`tab-${id}`).focus();
+}
+
+function closeExportMenu() {
+    const list = document.getElementById('exportMenuList');
+    if (!list || list.hidden) return;
+    list.hidden = true;
+    document.getElementById('exportMenuButton').setAttribute('aria-expanded', 'false');
+}
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !document.getElementById('exportMenuList')?.hidden) {
+        closeExportMenu();
+        document.getElementById('exportMenuButton')?.focus();
+        return;
+    }
+    const tab = event.target.closest?.('.result-tab');
+    if (!tab) return;
+    const ids = RESULT_TABS.map(t => t.id);
+    const index = ids.indexOf(tab.dataset.tab);
+    const next = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: ids.length - 1 }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    selectResultTab(ids[(next + ids.length) % ids.length], true);
+});
+
+document.addEventListener('click', event => {
+    if (!event.target.closest?.('.export-menu')) closeExportMenu();
+});
+
 function displayResults() {
     const { finals, sortedIds } = getResults();
 
@@ -433,7 +559,6 @@ function displayResults() {
                            data-input="updateWeightFromControl" data-id="${criterion.id}" />
                     <div class="weight-control-number">
                         <input class="input-compact" type="number" id="weight-input-${criterion.id}" aria-label="Peso de ${escapeHtml(criterion.name)} em porcentagem" min="0" max="100" step="0.1" value="${percentage}"
-                              
                                data-change="updateWeightFromControl" data-id="${criterion.id}" />
                         <span class="hint">%</span>
                     </div>
@@ -443,87 +568,47 @@ function displayResults() {
     }).join('');
 
     document.getElementById('resultsInterface').innerHTML = `
-        <div class="results">
-            <h3>${icon('trophy')} Ranking final das alternativas</h3>
-            <ul class="ranking" id="dynamicRanking">${renderRankingItems(finals, sortedIds)}</ul>
-        </div>
+        <div class="results-layout">
+            <div class="results-main">
+                <section class="recommendation-card" id="recommendationCard" aria-label="Recomendação">${renderRecommendation(finals, sortedIds)}</section>
 
-        ${renderDominanceNotice()}
+                <div class="result-tabs" role="tablist" aria-label="Análises do resultado">${renderResultTabs()}</div>
 
-        <!-- Painel de Ajuste Dinâmico de Pesos -->
-        <div class="insight-box section-gap">
-            <h3>${icon('sliders-horizontal')} Ajuste dinâmico dos pesos</h3>
-            <p class="muted">Ajuste os pesos abaixo e veja os resultados atualizarem em tempo real:</p>
+                ${resultPanel('ranking', 'Ranking final das alternativas', `
+                    <ul class="ranking" id="dynamicRanking">${renderRankingItems(finals, sortedIds)}</ul>
+                    ${renderDominanceNotice()}
+                `)}
+                ${resultPanel('matrix', 'Matriz de decisão', `
+                    <div class="table-scroll"><table class="matrix-table" id="dynamicMatrix">${renderMatrixContent(finals, sortedIds)}</table></div>
+                    ${MATRIX_LEGEND}
+                `)}
+                ${resultPanel('contribution', 'Contribuição de cada critério', `<div id="contributionChart">${renderContributionChart()}</div>`)}
+                ${resultPanel('sensitivity', 'Análise de sensibilidade', `<div id="sensitivityPanel">${renderSensitivity()}</div>`)}
+                ${resultPanel('scenarios', 'Comparação de cenários', `
+                    <p class="hint">Salve os pesos atuais como um cenário, ajuste os pesos e compare os rankings. Útil para discutir pontos de vista diferentes sobre a mesma decisão.</p>
+                    <div class="scenario-form scenario-controls">
+                        <input type="text" id="scenarioName" aria-label="Nome do cenário" placeholder="Ex: Foco em custo" maxlength="${MAX_SCENARIO_NAME_LENGTH}" data-enter="saveScenario">
+                        <button type="button" class="btn btn-primary btn-small" data-action="saveScenario">Salvar cenário</button>
+                    </div>
+                    <div id="scenarioPanel">${renderScenarioContent()}</div>
+                `)}
+            </div>
 
-            <!-- Controles de Normalização -->
-            <div class="subpanel">
-                <div class="row-center">
-                    <label class="checkbox-label">
-                        <input class="checkbox" type="checkbox" id="autoNormalizeCheckbox" ${state.autoNormalize ? 'checked' : ''}
-                               data-change="toggleAutoNormalize" />
-                        <span class="fw-500">Normalização Automática</span>
-                    </label>
-                </div>
-                <div class="hint">
-                    <strong>Ativado:</strong> Os pesos são automaticamente ajustados para somar 100%<br/>
-                    <strong>Desativado:</strong> Você controla os pesos manualmente (recomendado que somem 100%)
-                </div>
+            <aside class="weights-adjust" aria-labelledby="weightsAdjustTitle">
+                <h3 id="weightsAdjustTitle">${icon('sliders-horizontal')} Ajustar pesos</h3>
+                <p class="hint">Mude os pesos e veja a recomendação e as análises se atualizarem.</p>
+                <label class="checkbox-label">
+                    <input class="checkbox" type="checkbox" id="autoNormalizeCheckbox" ${state.autoNormalize ? 'checked' : ''} data-change="toggleAutoNormalize" />
+                    Manter a soma em 100%
+                </label>
                 <div class="status-line" id="weightStatus"></div>
-            </div>
-
-            <div class="weight-controls">${weightControls}</div>
-
-            <div class="weight-action-buttons">
-                <button class="btn btn-outline-primary" data-action="resetWeights">${icon('rotate-ccw')} Restaurar pesos originais</button>
-                <button class="btn btn-outline-success" data-action="equalizeWeights">${icon('scale')} Equalizar pesos</button>
-                <button class="btn btn-outline-warning" data-action="normalizeWeightsManually">${icon('gauge')} Normalizar agora</button>
-            </div>
-        </div>
-
-        <div class="section-gap">
-            <h3>${icon('table')} Matriz de decisão</h3>
-            <div class="table-scroll">
-                <table class="matrix-table" id="dynamicMatrix">${renderMatrixContent(finals, sortedIds)}</table>
-            </div>
-            ${MATRIX_LEGEND}
-        </div>
-
-        <div class="insight-box section-gap">
-            <h3>${icon('chart-bar')} Contribuição de cada critério</h3>
-            <div id="contributionChart">${renderContributionChart()}</div>
-        </div>
-
-        <div class="insight-box section-gap">
-            <h3>${icon('search')} Análise de sensibilidade</h3>
-            <div id="sensitivityPanel">${renderSensitivity()}</div>
-        </div>
-
-        <div class="insight-box section-gap">
-            <h3>${icon('flask-conical')} Comparação de cenários</h3>
-            <p>Salve os pesos atuais como um cenário, ajuste os sliders e compare os rankings. Útil para discutir pontos de vista diferentes sobre a mesma decisão.</p>
-            <div class="scenario-form scenario-controls">
-                <input type="text" id="scenarioName" aria-label="Nome do cenário" placeholder="Ex: Foco em custo" maxlength="${MAX_SCENARIO_NAME_LENGTH}" data-enter="saveScenario">
-                <button type="button" class="btn btn-primary btn-small" data-action="saveScenario">Salvar cenário</button>
-            </div>
-            <div id="scenarioPanel">${renderScenarioContent()}</div>
-        </div>
-
-        <div class="section-gap">
-            <h3>${icon('list')} Resumo da análise</h3>
-            <div class="items-list">
-                <div class="item"><span><strong>Problema:</strong> ${escapeHtml(state.problemTitle)}</span></div>
-                <div class="item"><span><strong>Critérios:</strong> ${state.criteria.length}</span></div>
-                <div class="item"><span><strong>Alternativas:</strong> ${state.alternatives.length}</span></div>
-                <div class="item"><span><strong>Método de Pesagem:</strong> <span id="resultsMethod">${escapeHtml(getResultsMethodLabel())}</span></span></div>
-                <div class="item"><span><strong>Alternativa Recomendada:</strong> <span id="topAlternative">${escapeHtml(getRecommendationLabel(finals, sortedIds))}</span></span></div>
-            </div>
-        </div>
-
-        <!-- Exportação dos resultados -->
-        <div class="results-export-actions">
-            <button class="btn btn-secondary" data-action="saveResults">${icon('braces')} Salvar JSON</button>
-            <button class="btn btn-secondary" data-action="saveResultsImage">${icon('image')} Salvar imagem</button>
-            <button class="btn btn-secondary" data-action="printReport">${icon('printer')} Relatório em PDF</button>
+                <div class="weight-controls">${weightControls}</div>
+                <div class="weight-action-buttons">
+                    <button class="btn btn-secondary btn-small" data-action="resetWeights">${icon('rotate-ccw')} Restaurar pesos do método</button>
+                    <button class="btn btn-secondary btn-small" data-action="equalizeWeights">${icon('scale')} Igualar</button>
+                    <button class="btn btn-secondary btn-small" data-action="normalizeWeightsManually">${icon('gauge')} Normalizar</button>
+                </div>
+            </aside>
         </div>
     `;
 
@@ -586,10 +671,9 @@ function updateWeightStatus() {
 function updateResultsDisplay() {
     const { finals, sortedIds } = getResults();
 
+    document.getElementById('recommendationCard').innerHTML = renderRecommendation(finals, sortedIds);
     document.getElementById('dynamicRanking').innerHTML = renderRankingItems(finals, sortedIds);
     document.getElementById('dynamicMatrix').innerHTML = renderMatrixContent(finals, sortedIds);
-    document.getElementById('topAlternative').textContent = getRecommendationLabel(finals, sortedIds);
-    document.getElementById('resultsMethod').textContent = getResultsMethodLabel();
     document.getElementById('contributionChart').innerHTML = renderContributionChart();
     document.getElementById('sensitivityPanel').innerHTML = renderSensitivity();
     renderScenarioPanel();
@@ -604,6 +688,13 @@ function getWeightingMethodName() {
 }
 
 registerActions({
+    selectResultTab: el => selectResultTab(el.dataset.tab),
+    toggleExportMenu: el => {
+        const list = document.getElementById('exportMenuList');
+        list.hidden = !list.hidden;
+        el.setAttribute('aria-expanded', String(!list.hidden));
+        if (!list.hidden) list.querySelector('[role="menuitem"]').focus();
+    },
     updateWeightFromControl: el => {
         const value = parseFloat(el.value);
         if (isNaN(value) || value < 0) {

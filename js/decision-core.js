@@ -253,3 +253,21 @@ function getScoreBounds(entry, alternativeId, alternativeIds) {
     if (alternativeId === entry.worst) return { min: 0, max: others.length ? Math.min(...others) : 10 };
     return { min: entry.worstScore, max: entry.bestScore };
 }
+
+/**
+ * Critérios em que a alternativa teve o pior score ou ficou abaixo da média das
+ * alternativas: os pontos que o livro pede para examinar antes de decidir.
+ * Critérios em que todas empatam são ignorados.
+ */
+function findWeaknesses(criterionIds, alternativeIds, comparisonData, alternativeId) {
+    return criterionIds.map(id => {
+        const scores = alternativeIds.map(other => getScore(comparisonData[id], other));
+        if (scores.every(score => Math.abs(score - scores[0]) < FLOAT_TOLERANCE)) return null;
+
+        const own = getScore(comparisonData[id], alternativeId);
+        const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+        if (Math.abs(own - Math.min(...scores)) < FLOAT_TOLERANCE) return { id, score: own, kind: 'worst', average };
+        if (own < average - FLOAT_TOLERANCE) return { id, score: own, kind: 'below-average', average };
+        return null;
+    }).filter(Boolean);
+}

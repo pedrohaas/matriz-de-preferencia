@@ -110,6 +110,10 @@ function swing(w) {
 }
 
 // ---- Asserções ----
+function assert(condition, label) {
+    if (!condition) throw new Error(`${label}: falhou`);
+}
+
 function equal(actual, expected, label) {
     const a = JSON.stringify(actual), e = JSON.stringify(expected);
     if (a !== e) throw new Error(`${label}: esperado ${e}, obtido ${a}`);
@@ -1659,6 +1663,7 @@ test('Nome de cenário é validado e o Enter salva', async () => {
     equal(count(), 0, 'longo');
     const input = el(w, 'scenarioName');
     input.value = 'Pelo teclado';
+    el(w, 'tab-scenarios').click();
     input.focus();
     key(w, 'Enter');
     equal(count(), 1, 'Enter');
@@ -2430,6 +2435,141 @@ test('Link de migração malformado ou com HTML é inofensivo', async () => {
 });
 
 // ---- Execução ----
+// ---- Tomada de decisão ----
+
+test('Núcleo: pontos fracos da vencedora', async () => {
+    const w = await load();
+    const data = scoresTable({
+        c1: { a: 2, b: 8, c: 5 },   // a é a pior
+        c2: { a: 4, b: 9, c: 8 },   // abaixo da média, e é a pior
+        c3: { a: 6, b: 9, c: 6 },   // abaixo da média (7), sem ser a única pior
+        c4: { a: 7, b: 7, c: 7 },   // empate: ignorado
+        c5: { a: 9, b: 1, c: 5 },   // a é a melhor
+    });
+    const result = JSON.parse(w.JSON.stringify(
+        w.findWeaknesses(['c1', 'c2', 'c3', 'c4', 'c5'], ['a', 'b', 'c'], data, 'a')));
+    equal(result.map(r => [r.id, r.kind]), [['c1', 'worst'], ['c2', 'worst'], ['c3', 'worst']], 'pontos fracos');
+    const middle = JSON.parse(w.JSON.stringify(w.findWeaknesses(['c3'], ['a', 'b', 'c'], scoresTable({ c3: { a: 2, b: 10, c: 5 } }), 'c')));
+    equal(middle.map(r => r.kind), ['below-average'], 'abaixo da média');
+});
+
+async function decisionWithWeakness(w) {
+    await setup(w, ['Custo', 'Prazo'], ['A', 'B']);
+    score(w, 'A', 10, 'B', 2);
+    goToCriterion(w, 1);
+    score(w, 'B', 9, 'A', 4);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    await w.nextStep();
+}
+
+test('Cartão de recomendação: margem, sensibilidade e pontos de atenção', async () => {
+    const w = await load();
+    await decisionWithWeakness(w);
+    const card = el(w, 'recommendationCard');
+    equal(el(w, 'topAlternative').textContent, 'A', 'vencedora');
+    equal(card.querySelector('.recommendation-score').textContent, read(w, `computeFinalScores(criterionIds(), alternativeIds(), state.comparisonData, state.weights)['${alternativeId(w, 'A')}']`).toFixed(2), 'score');
+    assert(card.querySelector('.recommendation-margin').textContent.includes('sobre B'), 'margem para a 2ª');
+    assert(card.querySelector('.recommendation-robustness').textContent.includes('Menor mudança'), 'sensibilidade');
+    const attention = [...card.querySelectorAll('.recommendation-attention li')].map(li => li.textContent.trim());
+    equal(attention.length, 1, 'um ponto de atenção');
+    assert(attention[0].startsWith('Prazo') && attention[0].includes('o pior'), 'ponto de atenção é Prazo');
+    equal(el(w, 'resultsMethod').textContent, 'Rank-Sum', 'método');
+});
+
+test('Cartão de recomendação acompanha o ajuste de pesos', async () => {
+    const w = await load();
+    await decisionWithWeakness(w);
+    const prazo = criterionId(w, 'Prazo');
+    const input = el(w, `weight-input-${prazo}`);
+    input.value = '90';
+    input.dispatchEvent(new w.Event('change', { bubbles: true }));
+    equal(el(w, 'topAlternative').textContent, 'B', 'nova vencedora');
+    const attention = el(w, 'recommendationCard').querySelector('.recommendation-attention').textContent;
+    assert(attention.includes('Custo'), 'pontos de atenção da nova vencedora');
+    equal(el(w, 'resultsMethod').textContent, 'Rank-Sum (pesos ajustados manualmente)', 'método');
+});
+
+test('Abas do resultado: clique e setas do teclado', async () => {
+    const w = await load();
+    await decisionWithWeakness(w);
+    const visible = () => [...w.document.querySelectorAll('[role="tabpanel"]')].filter(p => !p.hidden).map(p => p.id);
+    equal(visible(), ['panel-ranking'], 'começa no ranking');
+    el(w, 'tab-matrix').click();
+    equal(visible(), ['panel-matrix'], 'clique');
+    equal(el(w, 'tab-matrix').getAttribute('aria-selected'), 'true', 'aria-selected');
+    el(w, 'tab-matrix').focus();
+    key(w, 'ArrowRight');
+    equal(visible(), ['panel-contribution'], 'seta para a direita');
+    equal(w.document.activeElement.id, 'tab-contribution', 'foco acompanha');
+    key(w, 'End');
+    equal(visible(), ['panel-scenarios'], 'End');
+    key(w, 'ArrowRight');
+    equal(visible(), ['panel-ranking'], 'volta ao início');
+    equal([...w.document.querySelectorAll('.result-tab')].filter(t => t.tabIndex === 0).length, 1, 'uma aba no Tab');
+    // Os ids usados pelo restante da aplicação continuam presentes
+    ['dynamicRanking', 'dynamicMatrix', 'contributionChart', 'sensitivityPanel', 'scenarioPanel'].forEach(id => assert(el(w, id), id));
+    // Ajustar pesos não troca a aba aberta
+    el(w, 'tab-sensitivity').click();
+    action(w, 'equalizeWeights').click();
+    equal(visible(), ['panel-sensitivity'], 'aba mantida após ajuste');
+});
+
+test('Menu Exportar abre, fecha com Esc e devolve o foco', async () => {
+    const w = await load();
+    await decisionWithWeakness(w);
+    const button = el(w, 'exportMenuButton');
+    const list = el(w, 'exportMenuList');
+    equal(list.hidden, true, 'fechado');
+    button.click();
+    equal(list.hidden, false, 'aberto');
+    equal(button.getAttribute('aria-expanded'), 'true', 'aria-expanded');
+    equal(w.document.activeElement.getAttribute('role'), 'menuitem', 'foco no primeiro item');
+    key(w, 'Escape');
+    equal(list.hidden, true, 'Esc fecha');
+    equal(w.document.activeElement, button, 'foco volta ao botão');
+    button.click();
+    w.document.body.click();
+    equal(list.hidden, true, 'clique fora fecha');
+    equal([...list.querySelectorAll('[data-action]')].map(b => b.dataset.action), ['printReport', 'saveResultsImage', 'saveResults'], 'itens');
+});
+
+test('Imagem exportada mostra todas as abas com títulos', async () => {
+    const w = await load();
+    await decisionWithWeakness(w);
+    let captured = null;
+    w.html2canvas = async element => {
+        captured = {
+            panels: [...element.querySelectorAll('[role="tabpanel"]')].filter(p => !p.hidden).length,
+            headings: [...element.querySelectorAll('.result-panel.is-exported .panel-heading')].length,
+            tabs: element.querySelector('.result-tabs').style.display,
+        };
+        return { toBlob() {} };
+    };
+    action(w, 'saveResultsImage').click();
+    await sleep(500);
+    equal(captured, { panels: 5, headings: 5, tabs: 'none' }, 'clone exportado');
+    equal([...w.document.querySelectorAll('[role="tabpanel"]')].filter(p => !p.hidden).length, 1, 'página continua com uma aba');
+});
+
+test('Tomada de decisão cabe na tela em 375 px e 1280 px', async () => {
+    for (const width of [375, 1280]) {
+        const w = await load(width);
+        await setup(w, ['Um critério com um nome bem comprido para testar quebras', 'C2'], ['Alternativa_com_nome_muito_longo_sem_espacos_nenhum', 'B']);
+        score(w, 'Alternativa_com_nome_muito_longo_sem_espacos_nenhum', 10, 'B', 2);
+        goToCriterion(w, 1);
+        score(w, 'B', 9, 'Alternativa_com_nome_muito_longo_sem_espacos_nenhum', 1);
+        await w.nextStep();
+        rankSum(w, [1, 2]);
+        await w.nextStep();
+        for (const tab of ['ranking', 'matrix', 'contribution', 'sensitivity', 'scenarios']) {
+            el(w, `tab-${tab}`).click();
+            assertFits(w, `${width}px, aba ${tab}`);
+        }
+    }
+});
+
+
 // Os testes apagam o localStorage do domínio: fora da máquina local, destruiriam as
 // análises e a chave de API de quem abrisse esta página no site publicado
 const isLocalPage = ['localhost', '127.0.0.1'].includes(location.hostname);
