@@ -52,11 +52,8 @@ function resetApp() {
 }
 
 function restart() {
-    if (!confirm('Iniciar uma nova análise? A análise atual continuará disponível em "Análises salvas".')) {
-        return;
-    }
-
     flushAutoSave();
+    const before = JSON.stringify(state);
     resetApp();
-    showSuccess('Sistema reiniciado! Você pode começar uma nova análise.');
+    offerUndo('Nova análise iniciada. A anterior continua em "Análises salvas".', () => restoreStateSnapshot(before));
 }

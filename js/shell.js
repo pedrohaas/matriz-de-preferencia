@@ -253,7 +253,49 @@ document.addEventListener('keydown', event => {
     }
 });
 
+// ---- Desfazer ----
+
+const UNDO_TIMEOUT_MS = 8000;
+let pendingUndo = null;
+let undoTimer = null;
+
+// Em vez de pedir confirmação antes, a ação acontece e pode ser desfeita por alguns segundos
+function offerUndo(message, restore) {
+    pendingUndo = restore;
+    const bar = document.getElementById('undoBar');
+    bar.querySelector('.undo-text').textContent = message;
+    bar.hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(hideUndo, UNDO_TIMEOUT_MS);
+}
+
+function hideUndo() {
+    clearTimeout(undoTimer);
+    pendingUndo = null;
+    document.getElementById('undoBar').hidden = true;
+}
+
+function undoLastAction() {
+    const restore = pendingUndo;
+    hideUndo();
+    if (!restore) return;
+    restore();
+    showSuccess('Ação desfeita.');
+}
+
+// Volta a análise inteira a um estado anterior, guardado como JSON
+function restoreStateSnapshot(snapshot) {
+    state = hydrateState(JSON.parse(snapshot));
+    lastSavedSnapshot = null;
+    syncFixedFields();
+    updateCriteriaList();
+    updateAlternativesList();
+    showStep(state.currentStep);
+}
+
 registerActions({
+    undo: undoLastAction,
+    dismissUndo: hideUndo,
     goHome,
     newAnalysis,
     openExample: el => openExample(el.dataset.id),

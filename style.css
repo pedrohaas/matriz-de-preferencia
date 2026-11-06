@@ -586,6 +586,44 @@
     .item-name-text { min-width: 0; overflow-wrap: anywhere; }
     .item-name-text strong { margin-right: var(--space-2); color: var(--text-soft); font-weight: 600; }
     .item-actions { display: flex; gap: var(--space-1); flex-shrink: 0; }
+    .item-actions .icon-btn:disabled { opacity: 0.3; cursor: default; }
+    .item-handle { display: inline-flex; margin-left: calc(-1 * var(--space-2)); color: var(--gray-300); cursor: grab; }
+    .item-name-text { flex: 1; display: flex; align-items: baseline; gap: var(--space-2); }
+    .item-name-button { min-width: 0; padding: var(--space-1) 0; background: none; border: none; color: var(--text); text-align: left; overflow-wrap: anywhere; cursor: text; }
+    .item-name-button:hover { text-decoration: underline; text-decoration-color: var(--gray-300); }
+    .item.is-dragging { opacity: 0.5; }
+    .item.is-drop-target { border-color: var(--brand-600); box-shadow: inset 0 3px 0 var(--brand-600); }
+    .field-help { margin-top: var(--space-2); color: var(--text-muted); font-size: var(--text-xs); }
+    .field-error { margin-top: var(--space-1); color: var(--danger-700); font-size: var(--text-sm); font-weight: 500; }
+    .field-error:empty { display: none; }
+    input[aria-invalid="true"] { border-color: var(--danger-700); }
+
+    /* Barra de desfazer */
+    .undo-bar {
+        position: fixed;
+        bottom: var(--space-5);
+        left: 50%;
+        z-index: 98;
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        max-width: calc(100% - 2 * var(--space-4));
+        padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+        background: var(--gray-900);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        color: #fff;
+        font-size: var(--text-sm);
+        transform: translateX(-50%);
+    }
+    .undo-button { background: transparent; border-color: rgba(255, 255, 255, 0.4); color: var(--brand-accent); }
+    .undo-button:hover { background: rgba(255, 255, 255, 0.1); }
+    .undo-close { color: rgba(255, 255, 255, 0.7); }
+    .undo-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .undo-text { flex: 1; min-width: 0; }
+    @media (max-width: 759px) {
+        .undo-bar { right: var(--space-3); bottom: var(--space-3); left: var(--space-3); max-width: none; transform: none; }
+    }
     .edit-inline-input { flex: 1; }
     .edit-btn, .remove-btn {
         display: inline-flex;

@@ -341,24 +341,25 @@ test('Sem empate, a recomendação traz só a vencedora', async () => {
     equal(w.document.querySelectorAll('.tie-badge').length, 0, 'marcadores de empate');
 });
 
-test('Nova Análise pede confirmação e restaura progresso e banner', async () => {
+test('Nova análise recomeça a tela e pode ser desfeita', async () => {
     const w = await load();
     await goToWeights(w);
     rankSum(w, [1, 2, 3]);
     await w.nextStep();
 
-    w.confirm = () => false;
-    w.restart();
-    equal(read(w, 'state.currentStep'), 6, 'cancelar mantém a análise');
-
-    w.confirm = () => true;
     w.restart();
     equal(read(w, 'state.currentStep'), 1, 'passo');
     equal(el(w, 'prog-dot-0').classList.contains('active'), true, 'primeiro ponto ativo');
     equal(el(w, 'prog-dot-5').classList.contains('active'), false, 'último ponto inativo');
-    equal(el(w, 'contextBanner').classList.contains('visible'), false, 'banner');
+    equal(el(w, 'contextBanner').classList.contains('visible'), false, 'título fora do cabeçalho');
     equal(read(w, 'state.criteria'), [], 'critérios');
     equal(read(w, 'state.weightingInputs.ranks'), {}, 'entradas de pesagem');
+    equal(el(w, 'undoBar').hidden, false, 'oferece desfazer');
+
+    action(w, 'undo').click();
+    equal(read(w, 'state.currentStep'), 6, 'volta à análise anterior');
+    equal(read(w, 'state.criteria.length'), 3, 'critérios de volta');
+    equal(el(w, 'undoBar').hidden, true, 'barra fecha');
 });
 
 test('Critério pode ser reiniciado em qualquer subetapa', async () => {
@@ -732,21 +733,23 @@ test('Armazenamento ilegível não impede abrir a aplicação', async () => {
     equal(w.uiErrors, [], 'erros');
 });
 
-test('Excluir pede confirmação, e excluir a aberta recomeça a tela', async () => {
+test('Excluir análise pode ser desfeito, e excluir a aberta não a recria', async () => {
     const w = await load();
     setField(w, 'problemTitle', 'Aberta');
     w.flushAutoSave();
     const remove = () => w.document.querySelector('[data-action="deleteAnalysis"]').click();
 
-    w.confirm = () => false;
     remove();
-    equal(Object.keys(savedAnalyses()).length, 1, 'cancelado');
+    equal(Object.keys(savedAnalyses()).length, 0, 'excluída');
+    action(w, 'undo').click();
+    equal(Object.keys(savedAnalyses()).length, 1, 'desfeito');
+    equal(listRows(w).length, 1, 'de volta na lista');
 
-    w.confirm = () => true;
     remove();
     await sleep(1200);
     equal(Object.keys(savedAnalyses()).length, 0, 'excluída e não recriada');
     equal(el(w, 'problemTitle').value, '', 'tela');
+    equal(bodyView(w), 'home', 'volta ao início');
     equal(w.document.querySelector('.saved-analyses-empty') !== null, true, 'lista vazia');
 });
 
@@ -2036,6 +2039,157 @@ test('Interface não usa emojis como ícones', async () => {
     const emojis = (w.document.body.innerText.match(/\p{Extended_Pictographic}/gu) || []);
     equal(emojis, [], 'emojis visíveis');
     equal(w.document.querySelectorAll('#resultsInterface svg.icon').length > 5, true, 'ícones SVG');
+});
+
+// ---- Entrada de dados ----
+const itemNames = (w, kind) => [...w.document.querySelectorAll(`#${kind === 'criterion' ? 'criteriaList' : 'alternativesList'} .item-name-button`)].map(b => b.textContent);
+
+async function onCriteriaStep(w) {
+    setField(w, 'problemTitle', 'Teste');
+    await w.nextStep();
+}
+
+test('Colar uma lista adiciona um critério por linha, sem repetir', async () => {
+    const w = await load();
+    await onCriteriaStep(w);
+    el(w, 'criterionInput').value = 'Custo';
+    w.addCriterion();
+    const transfer = new w.DataTransfer();
+    transfer.setData('text/plain', '1. Prazo\n- Qualidade\n\nCusto\n  Suporte  \n');
+    const event = new w.ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true });
+    el(w, 'criterionInput').dispatchEvent(event);
+    // O Firefox não repassa dados em eventos de colar criados por script; o Chrome, sim.
+    // Lá, valida-se a mesma função que o evento chama.
+    if (event.clipboardData && event.clipboardData.types.length) {
+        equal(event.defaultPrevented, true, 'colagem tratada');
+    } else {
+        w.addPastedItems('criterion', '1. Prazo\n- Qualidade\n\nCusto\n  Suporte  \n');
+    }
+    equal(itemNames(w, 'criterion'), ['Custo', 'Prazo', 'Qualidade', 'Suporte'], 'itens');
+    equal(el(w, 'criterionInput-error').textContent.includes('Custo'), true, 'avisa o repetido');
+});
+
+test('Colar uma linha só não muda o comportamento normal do campo', async () => {
+    const w = await load();
+    await onCriteriaStep(w);
+    const transfer = new w.DataTransfer();
+    transfer.setData('text/plain', 'Custo');
+    const event = new w.ClipboardEvent('paste', { clipboardData: transfer, bubbles: true, cancelable: true });
+    el(w, 'criterionInput').dispatchEvent(event);
+    equal(event.defaultPrevented, false, 'colagem normal');
+    equal(read(w, 'state.criteria.length'), 0, 'nada adicionado');
+});
+
+test('Erro de nome vazio ou repetido aparece junto ao campo', async () => {
+    const w = await load();
+    await onCriteriaStep(w);
+    w.addCriterion();
+    equal(el(w, 'criterionInput-error').textContent, 'Digite o nome do critério.', 'vazio');
+    equal(el(w, 'criterionInput').getAttribute('aria-invalid'), 'true', 'campo marcado');
+    el(w, 'criterionInput').value = 'Custo';
+    w.addCriterion();
+    equal(el(w, 'criterionInput-error').textContent, '', 'limpo ao acertar');
+    el(w, 'criterionInput').value = 'Custo';
+    w.addCriterion();
+    equal(el(w, 'criterionInput-error').textContent, 'Este critério já foi adicionado.', 'repetido');
+    setField(w, 'criterionInput', 'Cus');
+    equal(el(w, 'criterionInput-error').textContent, '', 'limpo ao digitar');
+    equal(w.document.querySelectorAll('.toast-error').length, 0, 'sem aviso no canto');
+});
+
+test('Itens são reordenados por botão e pelo teclado', async () => {
+    const w = await load();
+    await onCriteriaStep(w);
+    for (const c of ['A', 'B', 'C']) { el(w, 'criterionInput').value = c; w.addCriterion(); }
+    const button = (name, direction) => w.document.querySelector(`#criterion-item-${criterionId(w, name)} [data-direction="${direction}"]`);
+    equal(button('A', 'up').disabled, true, 'primeiro não sobe');
+    button('C', 'up').click();
+    equal(itemNames(w, 'criterion'), ['A', 'C', 'B'], 'botão');
+    equal(w.document.activeElement.closest('.item').id, `criterion-item-${criterionId(w, 'C')}`, 'foco acompanha o item');
+    key(w, 'ArrowUp', { altKey: true });
+    equal(itemNames(w, 'criterion'), ['C', 'A', 'B'], 'Alt+↑');
+    key(w, 'ArrowDown', { altKey: true });
+    equal(itemNames(w, 'criterion'), ['A', 'C', 'B'], 'Alt+↓');
+    equal(buildingRows(w).slice(1).map(r => r[0]), ['A', 'C', 'B'], 'matriz segue a ordem');
+});
+
+test('Itens são reordenados por arraste', async () => {
+    const w = await load();
+    await onCriteriaStep(w);
+    for (const c of ['A', 'B', 'C']) { el(w, 'criterionInput').value = c; w.addCriterion(); }
+    const item = name => el(w, `criterion-item-${criterionId(w, name)}`);
+    const transfer = new w.DataTransfer();
+    const drag = (type, target) => target.dispatchEvent(new w.DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    drag('dragstart', item('C'));
+    drag('dragover', item('A'));
+    equal(item('A').classList.contains('is-drop-target'), true, 'alvo destacado');
+    drag('drop', item('A'));
+    drag('dragend', item('C'));
+    equal(itemNames(w, 'criterion'), ['C', 'A', 'B'], 'ordem');
+});
+
+test('Clicar no nome edita o item', async () => {
+    const w = await load();
+    await onCriteriaStep(w);
+    el(w, 'criterionInput').value = 'Custo';
+    w.addCriterion();
+    w.document.querySelector('.item-name-button').click();
+    const input = w.document.querySelector('.edit-inline-input');
+    equal(w.document.activeElement, input, 'campo de edição focado');
+    input.value = 'Custo total';
+    key(w, 'Enter');
+    equal(itemNames(w, 'criterion'), ['Custo total'], 'renomeado');
+});
+
+test('Remover critério com scores pode ser desfeito, sem perder os scores', async () => {
+    const w = await load();
+    await goToWeights(w);
+    w.goToStep(2);
+    const id = criterionId(w, 'C2');
+    const before = read(w, `state.comparisonData['${id}']`);
+    w.document.querySelector(`[data-action="removeItem"][data-id="${id}"]`).click();
+    equal(itemNames(w, 'criterion'), ['C1', 'C3'], 'removido');
+    equal(el(w, 'undoBar').querySelector('.undo-text').textContent, 'Critério "C2" removido.', 'mensagem');
+    action(w, 'undo').click();
+    equal(itemNames(w, 'criterion'), ['C1', 'C2', 'C3'], 'restaurado na mesma posição');
+    equal(read(w, `state.comparisonData['${id}']`), before, 'scores restaurados');
+});
+
+test('Remover alternativa no passo de scores pode ser desfeito', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    score(w, 'A', 10, 'B', 2, ['A']);
+    action(w, 'toggleManagementPanel').click();
+    w.document.querySelector(`[data-action="removeAlternativeFromStep3"][data-id="${alternativeId(w, 'C')}"]`).click();
+    equal(read(w, 'state.alternatives.length'), 2, 'removida sem pedir confirmação');
+    action(w, 'undo').click();
+    equal(read(w, 'state.alternatives.length'), 3, 'restaurada');
+    equal(read(w, `getScore(state.comparisonData['${criterionId(w, 'C1')}'], '${alternativeId(w, 'C')}')`), 10, 'score restaurado');
+});
+
+test('Barra de desfazer some sozinha e pode ser fechada', async () => {
+    const w = await load();
+    await onCriteriaStep(w);
+    el(w, 'criterionInput').value = 'Custo';
+    w.addCriterion();
+    w.document.querySelector('[data-action="removeItem"]').click();
+    equal(el(w, 'undoBar').hidden, false, 'aparece');
+    action(w, 'dismissUndo').click();
+    equal(el(w, 'undoBar').hidden, true, 'fecha');
+    equal(read(w, 'state.criteria.length'), 0, 'remoção mantida');
+});
+
+test('Nenhuma ação usa caixas de confirmação do navegador', async () => {
+    const w = await load();
+    let asked = 0;
+    w.confirm = () => { asked++; return true; };
+    await goToWeights(w);
+    action(w, 'toggleManagementPanel').click();
+    w.document.querySelector('[data-action="removeCriterionFromStep3"]').click();
+    w.restart();
+    w.goHome();
+    w.document.querySelector('[data-action="deleteAnalysis"]').click();
+    equal(asked, 0, 'confirmações');
 });
 
 // ---- Site oficial ----
