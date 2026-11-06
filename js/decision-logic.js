@@ -60,6 +60,7 @@ document.addEventListener('keydown', event => {
 
 // Mostra um passo e prepara a interface dele, sem alterar os dados já informados
 function showStep(step) {
+    setView('wizard');
     document.querySelector('.step.active')?.classList.remove('active');
     state.currentStep = step;
     document.getElementById(`step${step}`).classList.add('active');
@@ -85,6 +86,7 @@ function showStep(step) {
     } else {
         scheduleAutoSave();
     }
+    refreshShell();
 }
 
 // Ao trocar de passo, leva a leitura e o foco do teclado para o início dele
@@ -220,22 +222,11 @@ function updateContextBanner() {
         return;
     }
 
-    document.getElementById('contextTitle').textContent = `🎯 ${state.problemTitle}`;
+    document.getElementById('contextTitle').textContent = state.problemTitle;
     document.getElementById('contextDesc').textContent = state.problemDescription;
     banner.classList.add('visible');
-
-    // Recolhe a configuração da API ao sair da apresentação
-    setApiConfigCollapsed(true);
 }
 
-function setApiConfigCollapsed(collapsed) {
-    document.getElementById('apiConfigSection').classList.toggle('collapsed', collapsed);
-    document.getElementById('apiToggleBtn').setAttribute('aria-expanded', String(!collapsed));
-}
-
-function toggleApiConfig() {
-    setApiConfigCollapsed(!document.getElementById('apiConfigSection').classList.contains('collapsed'));
-}
 
 // ---- Resultados ----
 
@@ -250,9 +241,9 @@ function renderRankingItems(finals, sortedIds) {
         const tied = positions.filter(position => position === positions[index]).length > 1;
         return `
         <li>
-            <div style="display: flex; align-items: center; gap: 15px; width: 100%;">
+            <div class="ranking-row">
                 <div class="ranking-position">${positions[index]}</div>
-                <div style="flex-grow: 1;">
+                <div class="grow">
                     <strong>${escapeHtml(alternativeName(id))}</strong>
                     ${tied ? '<span class="tie-badge">Empate</span>' : ''}
                 </div>
@@ -366,7 +357,7 @@ function renderDominanceNotice() {
 
     return `
         <div class="insight-box insight-warning" id="dominanceNotice">
-            <h4>⚠️ Alternativas dominadas</h4>
+            <h4>${icon('triangle-alert')} Alternativas dominadas</h4>
             <p>Nenhuma combinação de pesos pode colocá-las à frente da alternativa que as domina, que é pelo menos tão boa em todos os critérios e melhor em algum. Podem ser eliminadas da análise.</p>
             <ul>${items}</ul>
         </div>
@@ -435,16 +426,16 @@ function displayResults() {
     const weightControls = state.criteria.map(criterion => {
         const percentage = (state.weights[criterion.id] * 100).toFixed(1);
         return `
-            <div class="weight-control-item" style="display: flex; align-items: center; gap: 15px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+            <div class="weight-control-item">
                 <div class="weight-control-label">${escapeHtml(criterion.name)}</div>
-                <div style="flex-grow: 1; display: flex; align-items: center; gap: 10px;">
-                    <input type="range" id="weight-${criterion.id}" aria-label="Peso de ${escapeHtml(criterion.name)}" min="0" max="100" value="${percentage}" step="0.1"
-                           style="flex-grow: 1;" data-input="updateWeightFromControl" data-id="${criterion.id}" />
-                    <div style="min-width: 80px; display: flex; align-items: center; gap: 5px;">
-                        <input type="number" id="weight-input-${criterion.id}" aria-label="Peso de ${escapeHtml(criterion.name)} em porcentagem" min="0" max="100" step="0.1" value="${percentage}"
-                               style="width: 60px; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; text-align: center;"
+                <div class="weight-control-inputs">
+                    <input class="grow" type="range" id="weight-${criterion.id}" aria-label="Peso de ${escapeHtml(criterion.name)}" min="0" max="100" value="${percentage}" step="0.1"
+                           data-input="updateWeightFromControl" data-id="${criterion.id}" />
+                    <div class="weight-control-number">
+                        <input class="input-compact" type="number" id="weight-input-${criterion.id}" aria-label="Peso de ${escapeHtml(criterion.name)} em porcentagem" min="0" max="100" step="0.1" value="${percentage}"
+                              
                                data-change="updateWeightFromControl" data-id="${criterion.id}" />
-                        <span style="font-size: 0.9em; color: #666;">%</span>
+                        <span class="hint">%</span>
                     </div>
                 </div>
             </div>
@@ -453,62 +444,62 @@ function displayResults() {
 
     document.getElementById('resultsInterface').innerHTML = `
         <div class="results">
-            <h3>🏆 Ranking Final das Alternativas</h3>
+            <h3>${icon('trophy')} Ranking final das alternativas</h3>
             <ul class="ranking" id="dynamicRanking">${renderRankingItems(finals, sortedIds)}</ul>
         </div>
 
         ${renderDominanceNotice()}
 
         <!-- Painel de Ajuste Dinâmico de Pesos -->
-        <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
-            <h3>⚖️ Ajuste Dinâmico dos Pesos</h3>
-            <p style="margin-bottom: 15px; color: #666;">Ajuste os pesos abaixo e veja os resultados atualizarem em tempo real:</p>
+        <div class="insight-box section-gap">
+            <h3>${icon('sliders-horizontal')} Ajuste dinâmico dos pesos</h3>
+            <p class="muted">Ajuste os pesos abaixo e veja os resultados atualizarem em tempo real:</p>
 
             <!-- Controles de Normalização -->
-            <div style="margin-bottom: 20px; padding: 15px; background: #fff; border-radius: 6px; border: 1px solid #ddd;">
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                        <input type="checkbox" id="autoNormalizeCheckbox" ${state.autoNormalize ? 'checked' : ''}
-                               data-change="toggleAutoNormalize" style="transform: scale(1.2);" />
-                        <span style="font-weight: 500;">Normalização Automática</span>
+            <div class="subpanel">
+                <div class="row-center">
+                    <label class="checkbox-label">
+                        <input class="checkbox" type="checkbox" id="autoNormalizeCheckbox" ${state.autoNormalize ? 'checked' : ''}
+                               data-change="toggleAutoNormalize" />
+                        <span class="fw-500">Normalização Automática</span>
                     </label>
                 </div>
-                <div style="font-size: 0.9em; color: #666;">
+                <div class="hint">
                     <strong>Ativado:</strong> Os pesos são automaticamente ajustados para somar 100%<br/>
                     <strong>Desativado:</strong> Você controla os pesos manualmente (recomendado que somem 100%)
                 </div>
-                <div id="weightStatus" style="margin-top: 10px; padding: 8px; border-radius: 4px; font-size: 0.9em; font-weight: 500;"></div>
+                <div class="status-line" id="weightStatus"></div>
             </div>
 
-            <div class="weight-controls" style="display: grid; gap: 15px;">${weightControls}</div>
+            <div class="weight-controls">${weightControls}</div>
 
-            <div class="weight-action-buttons" style="margin-top: 15px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-                <button class="btn btn-outline-primary" data-action="resetWeights">🔄 Restaurar Pesos Originais</button>
-                <button class="btn btn-outline-success" data-action="equalizeWeights">⚖️ Equalizar Pesos</button>
-                <button class="btn btn-outline-warning" data-action="normalizeWeightsManually">📐 Normalizar Agora</button>
+            <div class="weight-action-buttons">
+                <button class="btn btn-outline-primary" data-action="resetWeights">${icon('rotate-ccw')} Restaurar pesos originais</button>
+                <button class="btn btn-outline-success" data-action="equalizeWeights">${icon('scale')} Equalizar pesos</button>
+                <button class="btn btn-outline-warning" data-action="normalizeWeightsManually">${icon('gauge')} Normalizar agora</button>
             </div>
         </div>
 
-        <div style="margin-top: 30px;">
-            <h3>📊 Matriz de Decisão Completa</h3>
-            <div style="overflow-x: auto;">
+        <div class="section-gap">
+            <h3>${icon('table')} Matriz de decisão</h3>
+            <div class="table-scroll">
                 <table class="matrix-table" id="dynamicMatrix">${renderMatrixContent(finals, sortedIds)}</table>
             </div>
             ${MATRIX_LEGEND}
         </div>
 
-        <div class="insight-box" style="margin-top: 30px;">
-            <h3>📊 Contribuição de Cada Critério</h3>
+        <div class="insight-box section-gap">
+            <h3>${icon('chart-bar')} Contribuição de cada critério</h3>
             <div id="contributionChart">${renderContributionChart()}</div>
         </div>
 
-        <div class="insight-box" style="margin-top: 30px;">
-            <h3>🔎 Análise de Sensibilidade</h3>
+        <div class="insight-box section-gap">
+            <h3>${icon('search')} Análise de sensibilidade</h3>
             <div id="sensitivityPanel">${renderSensitivity()}</div>
         </div>
 
-        <div class="insight-box" style="margin-top: 30px;">
-            <h3>🧪 Comparação de Cenários</h3>
+        <div class="insight-box section-gap">
+            <h3>${icon('flask-conical')} Comparação de cenários</h3>
             <p>Salve os pesos atuais como um cenário, ajuste os sliders e compare os rankings. Útil para discutir pontos de vista diferentes sobre a mesma decisão.</p>
             <div class="scenario-form scenario-controls">
                 <input type="text" id="scenarioName" aria-label="Nome do cenário" placeholder="Ex: Foco em custo" maxlength="${MAX_SCENARIO_NAME_LENGTH}" data-enter="saveScenario">
@@ -517,8 +508,8 @@ function displayResults() {
             <div id="scenarioPanel">${renderScenarioContent()}</div>
         </div>
 
-        <div style="margin-top: 30px;">
-            <h3>📈 Resumo da Análise</h3>
+        <div class="section-gap">
+            <h3>${icon('list')} Resumo da análise</h3>
             <div class="items-list">
                 <div class="item"><span><strong>Problema:</strong> ${escapeHtml(state.problemTitle)}</span></div>
                 <div class="item"><span><strong>Critérios:</strong> ${state.criteria.length}</span></div>
@@ -529,10 +520,10 @@ function displayResults() {
         </div>
 
         <!-- Exportação dos resultados -->
-        <div class="results-export-actions" style="margin-top: 20px; text-align: center; display: flex; gap: 1rem; justify-content: center;">
-            <button class="btn btn-secondary" data-action="saveResults">💾 Salvar JSON</button>
-            <button class="btn btn-secondary" data-action="saveResultsImage">🖼️ Salvar Imagem</button>
-            <button class="btn btn-secondary" data-action="printReport">📄 Relatório em PDF</button>
+        <div class="results-export-actions">
+            <button class="btn btn-secondary" data-action="saveResults">${icon('braces')} Salvar JSON</button>
+            <button class="btn btn-secondary" data-action="saveResultsImage">${icon('image')} Salvar imagem</button>
+            <button class="btn btn-secondary" data-action="printReport">${icon('printer')} Relatório em PDF</button>
         </div>
     `;
 
@@ -573,22 +564,22 @@ function updateWeightStatus() {
     const totalPercentage = (total * 100).toFixed(1);
 
     let html;
-    let style;
+    let tone;
     if (Math.abs(total - 1) < 0.001) {
-        html = `✅ Total dos pesos: ${totalPercentage}% - Perfeito!`;
-        style = 'background: #d4edda; color: #155724; border: 1px solid #c7ddc7;';
+        html = `${icon('circle-check')} Total dos pesos: ${totalPercentage}%`;
+        tone = 'status-ok';
     } else if (total > 1) {
-        html = `⚠️ Total dos pesos: ${totalPercentage}% - Acima de 100%`;
-        style = 'background: #fff3cd; color: #856404; border: 1px solid #fce4a6;';
-        if (!state.autoNormalize) html += '<br/>💡 Sugestão: Reduza alguns pesos ou ative a normalização automática';
+        html = `${icon('triangle-alert')} Total dos pesos: ${totalPercentage}%, acima de 100%`;
+        tone = 'status-warn';
+        if (!state.autoNormalize) html += '<br/>Reduza alguns pesos ou ative a normalização automática.';
     } else {
-        html = `⚠️ Total dos pesos: ${totalPercentage}% - Abaixo de 100%`;
-        style = 'background: #f8d7da; color: #721c24; border: 1px solid #f3c6cb;';
-        if (!state.autoNormalize) html += '<br/>💡 Sugestão: Aumente alguns pesos ou ative a normalização automática';
+        html = `${icon('triangle-alert')} Total dos pesos: ${totalPercentage}%, abaixo de 100%`;
+        tone = 'status-error';
+        if (!state.autoNormalize) html += '<br/>Aumente alguns pesos ou ative a normalização automática.';
     }
 
     statusElement.innerHTML = html;
-    statusElement.style.cssText = style;
+    statusElement.className = `status-line ${tone}`;
 }
 
 // Atualiza os resultados sem recriar os controles em uso

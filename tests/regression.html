@@ -614,7 +614,7 @@ test('Status de salvamento informa quando a análise foi salva', async () => {
     equal(el(w, 'saveStatus').textContent.includes('Defina um título'), true, 'sem título');
     setField(w, 'problemTitle', 'Teste');
     w.flushAutoSave();
-    equal(el(w, 'saveStatus').textContent.includes('Salvo automaticamente às'), true, 'com título');
+    equal(el(w, 'saveStatus').textContent.includes('Salvo às'), true, 'com título');
 });
 
 test('Falha ao gravar é informada sem interromper a análise', async () => {
@@ -961,7 +961,7 @@ test('Imagem é gerada de verdade com o html2canvas local', async () => {
 
 test('Logo carrega do arquivo otimizado', async () => {
     const w = await load();
-    const logo = w.document.querySelector('.header img');
+    const logo = w.document.querySelector('.home-logo');
     equal(logo.getAttribute('src'), 'images/logo.webp', 'src');
     for (let i = 0; i < 30 && !logo.complete; i++) await sleep(50);
     equal(logo.naturalWidth, 432, 'largura');
@@ -1200,9 +1200,10 @@ test('Painel avisa quando os pesos não somam 100%', async () => {
 function assertFits(w, label) {
     const page = w.document.documentElement;
     if (page.scrollWidth > page.clientWidth) {
+        const isFixed = e => { for (let n = e; n; n = n.parentElement) { if (w.getComputedStyle(n).position === 'fixed') return true; } return false; };
         const wide = [...w.document.querySelectorAll('body *')]
-            .filter(e => e.getBoundingClientRect().right > page.clientWidth + 1 && !e.closest('.table-scroll, .step-progress, [style*="overflow-x"]'))
-            .slice(0, 3).map(e => e.tagName + '.' + e.className);
+            .filter(e => e.getBoundingClientRect().right > page.clientWidth + 1 && !e.closest('.table-scroll, .step-progress, [style*="overflow-x"]') && !isFixed(e))
+            .slice(-4).map(e => `${e.tagName}.${typeof e.className === 'string' ? e.className : ''}#${e.id}(${Math.round(e.getBoundingClientRect().right)})`);
         throw new Error(`${label}: rolagem horizontal (${page.scrollWidth} > ${page.clientWidth}): ${wide}`);
     }
 }
@@ -1251,24 +1252,25 @@ for (const width of [320, 390, 768]) {
     });
 }
 
-test('No celular, o título aparece inteiro e a barra de passos não corta o início', async () => {
+test('No celular, cabeçalho e passos cabem sem cortar nada', async () => {
     const w = await load(390);
     const rect = e => e.getBoundingClientRect();
-    const title = w.document.querySelector('.header h1');
-    const header = w.document.querySelector('.header');
-    equal(rect(title).right <= rect(header).right, true, 'título dentro do cabeçalho');
-    equal(rect(w.document.querySelector('.header-logo')).width, 96, 'logo');
+    const header = w.document.querySelector('.app-header');
+    const actions = w.document.querySelector('.app-header-actions');
+    equal(rect(actions).right <= rect(header).right + 0.5, true, 'botões dentro do cabeçalho');
+    equal(rect(w.document.querySelector('.home-logo')).width, 96, 'logo da tela inicial');
 
+    setField(w, 'problemTitle', 'Teste');
+    await w.nextStep();
     const bar = el(w, 'stepProgressBar');
-    equal(bar.scrollWidth <= bar.clientWidth, true, 'barra cabe sem rolar');
+    equal(bar.scrollWidth <= bar.clientWidth, true, 'passos cabem sem rolar');
     equal(rect(el(w, 'prog-dot-0')).left >= rect(bar).left, true, 'primeiro passo visível');
     equal(rect(el(w, 'prog-dot-5')).right <= rect(bar).right, true, 'último passo visível');
-
-    const body = el(w, 'apiConfigBody');
-    equal(body.scrollHeight <= body.clientHeight, true, 'configuração da IA sem corte');
+    // Os rótulos ficam ocultos visualmente, mas continuam acessíveis
+    equal(w.document.querySelector('[data-action="openSettings"]').textContent.trim(), 'Configurações', 'nome acessível');
 });
 
-test('Banner de contexto fica fixo ao rolar a página', async () => {
+test('Cabeçalho fica fixo ao rolar a página', async () => {
     const w = await load();
     await goToWeights(w);
     rankSum(w, [1, 2, 3]);
@@ -1276,7 +1278,8 @@ test('Banner de contexto fica fixo ao rolar a página', async () => {
     w.scrollTo(0, 800);
     await sleep(50);
     equal(w.scrollY > 0, true, 'página rolou');
-    equal(Math.abs(el(w, 'contextBanner').getBoundingClientRect().top) < 1, true, 'banner no topo');
+    equal(Math.abs(w.document.querySelector('.app-header').getBoundingClientRect().top) < 1, true, 'cabeçalho no topo');
+    equal(el(w, 'contextTitle').textContent, 'Teste', 'título da análise no cabeçalho');
 });
 
 test('Trocar de passo leva a leitura ao início do passo', async () => {
@@ -1339,24 +1342,27 @@ test('Barra de passos é navegável e indica o passo atual', async () => {
     setField(w, 'problemTitle', 'Teste');
     await w.nextStep();
     equal(current(), ['prog-item-1'], 'após avançar');
-    equal(w.document.activeElement.textContent, 'Escolha dos Critérios', 'foco no título do passo');
+    equal(w.document.activeElement.textContent, 'Escolha dos critérios', 'foco no título do passo');
     equal(w.document.activeElement.tagName, 'H2', 'título é cabeçalho');
 });
 
-test('Configuração da IA recolhida sai da navegação por teclado', async () => {
+test('Configurações abrem em gaveta, prendem o foco e fecham com Esc', async () => {
     const w = await load();
-    const toggle = el(w, 'apiToggleBtn');
-    equal(toggle.getAttribute('aria-expanded'), 'true', 'aberta');
-    toggle.click();
-    equal(toggle.getAttribute('aria-expanded'), 'false', 'recolhida');
-    // A transição do painel (0,35 s) é seguida pela do próprio campo (0,2 s)
-    await sleep(800);
-    equal(w.getComputedStyle(el(w, 'apiKey')).visibility, 'hidden', 'campo oculto');
-    toggle.click();
-    equal(toggle.getAttribute('aria-expanded'), 'true', 'reaberta');
-    setField(w, 'problemTitle', 'Teste');
-    await w.nextStep();
-    equal(toggle.getAttribute('aria-expanded'), 'false', 'recolhe ao avançar');
+    const drawer = el(w, 'settingsDrawer');
+    const opener = w.document.querySelector('[data-action="openSettings"]');
+    equal(drawer.hidden, true, 'fechada');
+    opener.focus();
+    opener.click();
+    equal(drawer.hidden, false, 'aberta');
+    equal(w.document.activeElement.id, 'apiKey', 'foco no campo da chave');
+    key(w, 'Tab', { shiftKey: true });
+    equal(drawer.contains(w.document.activeElement), true, 'Shift+Tab não sai da gaveta');
+    key(w, 'Escape');
+    equal(drawer.hidden, true, 'Esc fecha');
+    equal(w.document.activeElement, opener, 'foco volta ao botão');
+    opener.click();
+    el(w, 'settingsBackdrop').click();
+    equal(drawer.hidden, true, 'clique fora fecha');
 });
 
 test('Modal da IA prende o foco, fecha com Esc e fica oculto quando fechado', async () => {
@@ -1884,6 +1890,152 @@ test('Voltar no meio da pontuação não perde os scores', async () => {
     w.goToStep(4);
     equal(JSON.stringify(entry()), before, 'mantidos ao voltar ao início');
     equal(!!card(w, 'Entre "A" e "B"'), true, 'retoma de onde parou');
+});
+
+// ---- Estrutura da interface ----
+const bodyView = w => w.document.body.classList.contains('view-home') ? 'home' : 'wizard';
+const visible = (w, element) => element && w.getComputedStyle(element).display !== 'none' && element.getClientRects().length > 0;
+const hint = (w, step) => el(w, `hint-step${step}`).textContent;
+const buildingRows = w => [...el(w, 'buildingMatrix').querySelectorAll('tr')].map(r => [...r.children].map(c => c.textContent.trim()));
+
+test('Aplicação abre na tela inicial, com nova análise e exemplos', async () => {
+    const w = await load();
+    equal(bodyView(w), 'home', 'tela inicial');
+    equal(visible(w, el(w, 'homeView')), true, 'tela inicial visível');
+    equal(visible(w, el(w, 'wizardView')), false, 'assistente oculto');
+    equal(w.document.querySelectorAll('.example-card').length, 5, 'exemplos');
+    action(w, 'newAnalysis').click();
+    equal(bodyView(w), 'wizard', 'assistente');
+    equal(read(w, 'state.currentStep'), 1, 'primeiro passo');
+    equal(w.document.activeElement.id, 'problemTitle', 'foco no título');
+});
+
+test('Voltar ao início salva a análise e a mostra na lista', async () => {
+    const w = await load();
+    action(w, 'newAnalysis').click();
+    setField(w, 'problemTitle', 'Em andamento');
+    w.document.querySelector('#step1 [data-action="goHome"]').click();
+    equal(bodyView(w), 'home', 'tela inicial');
+    equal(listRows(w).some(r => r.textContent.includes('Em andamento')), true, 'na lista');
+    openFromList(w, 'Em andamento');
+    equal(bodyView(w), 'wizard', 'reaberta');
+});
+
+test('Exemplo abre uma cópia pronta para a tomada de decisão', async () => {
+    const w = await load();
+    w.document.querySelector('[data-action="openExample"]').click();
+    equal(read(w, 'state.currentStep'), 5, 'abre nos pesos');
+    equal(read(w, 'state.problemTitle'), 'Escolha de fornecedor', 'título');
+    await w.nextStep();
+    equal(read(w, 'state.currentStep'), 6, 'resultado');
+    equal(el(w, 'topAlternative').textContent, 'Fornecedor B', 'recomendação');
+    w.goHome();
+    w.document.querySelector('[data-action="openExample"]').click();
+    equal(Object.keys(savedAnalyses()).length, 2, 'cada abertura cria uma cópia');
+});
+
+test('Dica do passo diz o que falta e quando está pronto', async () => {
+    const w = await load();
+    action(w, 'newAnalysis').click();
+    equal(hint(w, 1), 'Falta: título do problema', 'sem título');
+    setField(w, 'problemTitle', 'Teste');
+    equal(hint(w, 1), 'Pronto para avançar para Critérios', 'com título');
+    await w.nextStep();
+    equal(hint(w, 2), 'Falta: 2 critérios', 'nenhum critério');
+    el(w, 'criterionInput').value = 'C1';
+    w.addCriterion();
+    equal(hint(w, 2), 'Falta: 1 critério', 'um critério');
+    el(w, 'criterionInput').value = 'C2';
+    w.addCriterion();
+    equal(el(w, 'hint-step2').classList.contains('is-ready'), true, 'pronto');
+});
+
+test('Dica do passo de pesos acompanha o formulário', async () => {
+    const w = await load();
+    await goToWeights(w);
+    equal(hint(w, 5), 'Falta: escolher o método de pesagem', 'sem método');
+    selectMethod(w, 'ranksum');
+    equal(hint(w, 5), 'Falta: posição de 3 critérios', 'sem posições');
+    rankSum(w, [1, 1, 2]);
+    equal(hint(w, 5), 'Há posições repetidas', 'repetidas');
+    rankSum(w, [1, 2, 3]);
+    equal(hint(w, 5).startsWith('Pronto'), true, 'pronto');
+    selectMethod(w, 'swingweighting');
+    equal(hint(w, 5), 'Falta: o critério de maior impacto', 'swing sem critério');
+});
+
+test('Navegação lateral resume cada passo', async () => {
+    const w = await load();
+    await goToWeights(w);
+    equal(el(w, 'prog-meta-1').textContent, '3 critérios', 'critérios');
+    equal(el(w, 'prog-meta-2').textContent, '3 alternativas', 'alternativas');
+    equal(el(w, 'prog-meta-3').textContent, '3 de 3 critérios', 'scores');
+    selectMethod(w, 'ranksum');
+    equal(el(w, 'prog-meta-4').textContent, 'Rank-Sum', 'método');
+});
+
+test('Matriz em construção acompanha os passos', async () => {
+    const w = await load();
+    equal(w.document.documentElement.classList.contains('matrix-panel-off'), false, 'visível por padrão em tela larga');
+    await setup(w, ['Custo', 'Prazo'], ['A', 'B']);
+    equal(buildingRows(w), [['Critério', 'Peso', 'A', 'B'], ['Custo', '·', '·', '·'], ['Prazo', '·', '·', '·']], 'estrutura');
+    equal(el(w, 'buildingMatrix').querySelector('table').dataset.focus, 'scores', 'destaque do passo');
+    score(w, 'A', 10, 'B', 2);
+    equal(buildingRows(w)[1], ['Custo', '·', '10', '2'], 'scores preenchidos');
+    goToCriterion(w, 1);
+    score(w, 'B', 8, 'A', 4);
+    await w.nextStep();
+    rankSum(w, [1, 2]);
+    equal(buildingRows(w)[1], ['Custo', '66.7%', '10', '2'], 'pesos');
+    await w.nextStep();
+    equal(buildingRows(w)[3], ['Total', '100%', '8.00', '4.00'], 'total');
+});
+
+test('Matriz em construção pode ser ocultada, e a escolha é lembrada', async () => {
+    let w = await load();
+    action(w, 'newAnalysis').click();
+    const toggle = el(w, 'toggleMatrixPanel');
+    equal(toggle.getAttribute('aria-pressed'), 'true', 'ligada');
+    toggle.click();
+    equal(w.document.documentElement.classList.contains('matrix-panel-off'), true, 'oculta');
+    equal(visible(w, el(w, 'matrixPanel')), false, 'painel fora da tela');
+    equal(toggle.getAttribute('aria-pressed'), 'false', 'estado do botão');
+    w = await openPage();
+    equal(w.document.documentElement.classList.contains('matrix-panel-off'), true, 'continua oculta ao recarregar');
+    action(w, 'newAnalysis').click();
+    el(w, 'toggleMatrixPanel').click();
+    equal(visible(w, el(w, 'matrixPanel')), true, 'reexibida');
+});
+
+test('Em telas estreitas, a matriz começa oculta e abre como gaveta', async () => {
+    const w = await load(390);
+    action(w, 'newAnalysis').click();
+    equal(visible(w, el(w, 'matrixPanel')), false, 'oculta');
+    el(w, 'toggleMatrixPanel').click();
+    equal(w.getComputedStyle(el(w, 'matrixPanel')).position, 'fixed', 'gaveta');
+    w.document.querySelector('#matrixPanel [data-action="toggleMatrixPanel"]').click();
+    equal(visible(w, el(w, 'matrixPanel')), false, 'fecha pelo botão do painel');
+});
+
+test('Modo de apresentação amplia a interface e é lembrado', async () => {
+    let w = await load();
+    const size = () => parseFloat(w.getComputedStyle(w.document.documentElement).fontSize);
+    equal(size(), 16, 'tamanho normal');
+    el(w, 'togglePresentation').click();
+    equal(size(), 20, 'ampliado');
+    equal(el(w, 'togglePresentation').getAttribute('aria-pressed'), 'true', 'estado do botão');
+    w = await openPage();
+    equal(size(), 20, 'lembrado ao recarregar');
+});
+
+test('Interface não usa emojis como ícones', async () => {
+    const w = await load();
+    await goToWeights(w);
+    rankSum(w, [1, 2, 3]);
+    await w.nextStep();
+    const emojis = (w.document.body.innerText.match(/\p{Extended_Pictographic}/gu) || []);
+    equal(emojis, [], 'emojis visíveis');
+    equal(w.document.querySelectorAll('#resultsInterface svg.icon').length > 5, true, 'ícones SVG');
 });
 
 // ---- Site oficial ----

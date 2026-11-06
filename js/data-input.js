@@ -111,19 +111,17 @@ function startEditingItem(kind, id) {
     input.value = item.name;
     input.className = 'edit-inline-input';
     input.setAttribute('aria-label', `Novo nome de ${item.name}`);
-    input.style.cssText = 'flex:1; padding:6px 10px; border:2px solid var(--secondary); border-radius:6px; font-size:0.92rem; font-family:inherit; outline:none;';
 
     const createButton = (className, label, description) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = `btn ${className} btn-small`;
-        button.textContent = label;
+        button.innerHTML = label;
         button.setAttribute('aria-label', description);
-        button.style.cssText = 'padding:6px 12px; min-width:auto;';
         return button;
     };
-    const saveButton = createButton('btn-primary', '✓', 'Salvar nome');
-    const cancelButton = createButton('btn-secondary', '✕', 'Cancelar edição');
+    const saveButton = createButton('btn-primary', icon('check'), 'Salvar nome');
+    const cancelButton = createButton('btn-secondary', icon('x'), 'Cancelar edição');
 
     const confirmEdit = () => {
         const newName = input.value.trim();
@@ -162,16 +160,16 @@ function renderItemList(kind) {
     const items = config.items();
 
     if (items.length === 0) {
-        list.innerHTML = `<p style="color: #64748b; text-align: center;">${config.messages.none}</p>`;
+        list.innerHTML = `<p class="empty-state">${config.messages.none}</p>`;
         return;
     }
 
     list.innerHTML = items.map((item, index) => `
         <div class="item" id="${kind}-item-${item.id}">
             <span class="item-name-text"><strong>${index + 1}.</strong> ${escapeHtml(item.name)}</span>
-            <div class="item-actions" style="display:flex; gap:6px;">
-                <button class="edit-btn" data-action="editItem" data-kind="${kind}" data-id="${item.id}" aria-label="Editar ${escapeHtml(item.name)}">✏️ Editar</button>
-                <button class="remove-btn" data-action="removeItem" data-kind="${kind}" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.name)}">Remover</button>
+            <div class="item-actions">
+                <button class="edit-btn" data-action="editItem" data-kind="${kind}" data-id="${item.id}" aria-label="Editar ${escapeHtml(item.name)}">${icon('pencil')} Editar</button>
+                <button class="remove-btn" data-action="removeItem" data-kind="${kind}" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.name)}">${icon('trash-2')} Remover</button>
             </div>
         </div>
     `).join('');

@@ -52,14 +52,14 @@ function _showToast(message, type, duration) {
     // Remove toast anterior do mesmo tipo
     document.querySelectorAll(`.toast-notification.toast-${type}`).forEach(el => el.remove());
 
-    const icons = { error: '⛔', success: '✅' };
+    const icons = { error: 'triangle-alert', success: 'circle-check' };
     const toast = document.createElement('div');
     toast.className = `toast-notification toast-${type}`;
     toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
 
     const icon = document.createElement('span');
     icon.className = 'toast-icon';
-    icon.textContent = icons[type];
+    icon.innerHTML = window.icon ? window.icon(icons[type]) : '';
 
     const text = document.createElement('span');
     text.className = 'toast-text';

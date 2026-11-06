@@ -196,7 +196,7 @@ function renderScenarioTable() {
         const cells = results.map(result => {
             const isWinner = result.winners.includes(alternativeId);
             const text = `${result.positions[alternativeId]}º · ${result.finals[alternativeId].toFixed(2)}`;
-            return `<td${isWinner ? ' class="scenario-winner"' : ''}>${isWinner ? `🏆 <strong>${text}</strong>` : text}</td>`;
+            return `<td${isWinner ? ' class="scenario-winner"' : ''}>${isWinner ? `${icon('trophy', { label: 'vencedora' })} <strong>${text}</strong>` : text}</td>`;
         }).join('');
         return `<tr><th scope="row">${escapeHtml(alternativeName(alternativeId))}</th>${cells}</tr>`;
     }).join('');

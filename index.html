@@ -5,340 +5,338 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Matriz de Preferência</title>
     <meta name="description" content="Ferramenta de apoio à decisão multicritério baseada no método da Matriz de Preferência.">
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="style.css?v=11">
 
-    <script src="js/canonical-site.js?v=10"></script>
+    <script src="js/canonical-site.js?v=11"></script>
+    <script src="js/preferences.js?v=11"></script>
     <script src="libs/html2canvas.min.js"></script>
-    <script src="js/utils.js?v=10"></script>
-    <script src="js/state.js?v=10"></script>
-    <script src="js/decision-core.js?v=10"></script>
-    <script src="js/data-input.js?v=10"></script>
-    <script src="js/swing-weighting.js?v=10"></script>
-    <script src="js/comparison.js?v=10"></script>
-    <script src="js/ai-suggestions.js?v=10"></script>
-    <script src="js/decision-logic.js?v=10"></script>
-    <script src="js/report.js?v=10"></script>
-    <script src="js/export-utils.js?v=10"></script>
-    <script src="js/main.js?v=10"></script>
-    <script src="js/auto-save.js?v=10"></script>
-
+    <script src="js/utils.js?v=11"></script>
+    <script src="js/icons.js?v=11"></script>
+    <script src="js/state.js?v=11"></script>
+    <script src="js/decision-core.js?v=11"></script>
+    <script src="js/data-input.js?v=11"></script>
+    <script src="js/swing-weighting.js?v=11"></script>
+    <script src="js/comparison.js?v=11"></script>
+    <script src="js/ai-suggestions.js?v=11"></script>
+    <script src="js/decision-logic.js?v=11"></script>
+    <script src="js/report.js?v=11"></script>
+    <script src="js/export-utils.js?v=11"></script>
+    <script src="js/examples.js?v=11"></script>
+    <script src="js/shell.js?v=11"></script>
+    <script src="js/main.js?v=11"></script>
+    <script src="js/auto-save.js?v=11"></script>
 </head>
-<body>
-    <div class="container">
+<body class="view-home">
+    <a class="skip-link" href="#mainContent">Pular para o conteúdo</a>
 
-        <!-- HEADER -->
-        <div class="header">
-            <div class="header-logo">
-                <img src="images/logo.webp" width="432" height="432" alt="Logo Decisão de Valor">
-            </div>
-            <div class="header-text">
-                <h1>Matriz de Preferência</h1>
-                <p>Ferramenta de apoio à decisão multicritério</p>
-            </div>
+    <header class="app-header">
+        <button type="button" class="brand" data-action="goHome" aria-label="Início: análises salvas">
+            <img src="images/logo.webp" width="432" height="432" alt="">
+            <span class="brand-name">Matriz de Preferência</span>
+        </button>
+
+        <div class="app-context" id="contextBanner">
+            <strong id="contextTitle"></strong>
+            <span class="context-desc" id="contextDesc"></span>
         </div>
 
-        <!-- RÉGUA DE PROGRESSO DOS PASSOS -->
-        <nav class="step-progress" id="stepProgressBar" aria-label="Progresso dos passos">
-            <button type="button" class="step-progress-item" id="prog-item-0" onclick="goToStep(1)" aria-label="Apresentação" aria-current="step">
-                <span class="step-progress-item-wrap">
-                    <span class="step-dot intro active" id="prog-dot-0">●</span>
-                    <span class="step-label">Apresentação</span>
-                </span>
+        <div class="app-header-actions">
+            <span class="save-status" id="saveStatus" role="status">Defina um título para salvar automaticamente</span>
+            <button type="button" class="header-btn wizard-only" id="toggleMatrixPanel" data-action="toggleMatrixPanel" aria-pressed="false" aria-controls="matrixPanel" data-icon="table">
+                <span class="header-btn-label">Matriz</span>
             </button>
-            <div class="step-connector" id="prog-conn-0" aria-hidden="true"></div>
-            <button type="button" class="step-progress-item" id="prog-item-1" onclick="goToStep(2)" aria-label="Critérios">
-                <span class="step-progress-item-wrap">
-                    <span class="step-dot" id="prog-dot-1">1</span>
-                    <span class="step-label">Critérios</span>
-                </span>
+            <button type="button" class="header-btn" id="togglePresentation" data-action="togglePresentation" aria-pressed="false" data-icon="presentation">
+                <span class="header-btn-label">Apresentação</span>
             </button>
-            <div class="step-connector" id="prog-conn-1" aria-hidden="true"></div>
-            <button type="button" class="step-progress-item" id="prog-item-2" onclick="goToStep(3)" aria-label="Alternativas">
-                <span class="step-progress-item-wrap">
-                    <span class="step-dot" id="prog-dot-2">2</span>
-                    <span class="step-label">Alternativas</span>
-                </span>
+            <button type="button" class="header-btn" data-action="openSettings" aria-haspopup="dialog" aria-controls="settingsDrawer" data-icon="settings">
+                <span class="header-btn-label">Configurações</span>
             </button>
-            <div class="step-connector" id="prog-conn-2" aria-hidden="true"></div>
-            <button type="button" class="step-progress-item" id="prog-item-3" onclick="goToStep(4)" aria-label="Scores">
-                <span class="step-progress-item-wrap">
-                    <span class="step-dot" id="prog-dot-3">3</span>
-                    <span class="step-label">Scores</span>
-                </span>
-            </button>
-            <div class="step-connector" id="prog-conn-3" aria-hidden="true"></div>
-            <button type="button" class="step-progress-item" id="prog-item-4" onclick="goToStep(5)" aria-label="Pesos">
-                <span class="step-progress-item-wrap">
-                    <span class="step-dot" id="prog-dot-4">4</span>
-                    <span class="step-label">Pesos</span>
-                </span>
-            </button>
-            <div class="step-connector" id="prog-conn-4" aria-hidden="true"></div>
-            <button type="button" class="step-progress-item" id="prog-item-5" onclick="goToStep(6)" aria-label="Tomada de Decisão">
-                <span class="step-progress-item-wrap">
-                    <span class="step-dot" id="prog-dot-5">5</span>
-                    <span class="step-label">Tomada de Decisão</span>
-                </span>
-            </button>
+        </div>
+    </header>
+
+    <!-- =====================================================
+         TELA INICIAL
+         ===================================================== -->
+    <main class="home" id="homeView" aria-labelledby="homeTitle">
+        <section class="home-hero">
+            <img class="home-logo" src="images/logo.webp" width="432" height="432" alt="Logo Decisão de Valor">
+            <div class="home-hero-text">
+                <h1 id="homeTitle">Matriz de Preferência</h1>
+                <p>Estruture uma decisão em cinco passos: critérios, alternativas, scores, pesos e tomada de decisão.</p>
+                <div class="home-actions">
+                    <button type="button" class="btn btn-primary btn-large" data-action="newAnalysis" data-icon="plus">Nova análise</button>
+                    <button type="button" class="btn btn-secondary btn-large" data-action="chooseImportFile" data-icon="upload">Importar JSON</button>
+                    <input type="file" id="importFile" accept=".json,application/json" hidden data-change="importAnalysisFile">
+                </div>
+            </div>
+        </section>
+
+        <section class="home-section saved-analyses" aria-labelledby="savedTitle">
+            <div class="saved-analyses-header">
+                <h2 id="savedTitle">Análises salvas</h2>
+            </div>
+            <p class="saved-analyses-note">Ficam guardadas apenas neste navegador. Para levar a outro dispositivo, use "Salvar JSON" na tomada de decisão.</p>
+            <div id="savedAnalysesList"></div>
+        </section>
+
+        <section class="home-section" aria-labelledby="examplesTitle">
+            <h2 id="examplesTitle">Exemplos</h2>
+            <p class="saved-analyses-note">Análises fictícias, prontas para explorar ou apresentar em aula. Abrir um exemplo cria uma cópia.</p>
+            <div class="examples-grid" id="examplesList"></div>
+        </section>
+    </main>
+
+    <!-- =====================================================
+         ASSISTENTE DE PASSOS
+         ===================================================== -->
+    <div class="wizard" id="wizardView">
+        <nav class="stepper" id="stepProgressBar" aria-label="Passos da análise">
+            <ol class="stepper-list">
+                <li><button type="button" class="step-progress-item" id="prog-item-0" onclick="goToStep(1)" aria-label="Problema" aria-current="step">
+                    <span class="step-dot intro active" id="prog-dot-0" aria-hidden="true">•</span>
+                    <span class="step-text"><span class="step-label">Problema</span><span class="step-meta" id="prog-meta-0"></span></span>
+                </button></li>
+                <li><button type="button" class="step-progress-item" id="prog-item-1" onclick="goToStep(2)" aria-label="Critérios">
+                    <span class="step-dot" id="prog-dot-1" aria-hidden="true">1</span>
+                    <span class="step-text"><span class="step-label">Critérios</span><span class="step-meta" id="prog-meta-1"></span></span>
+                </button></li>
+                <li><button type="button" class="step-progress-item" id="prog-item-2" onclick="goToStep(3)" aria-label="Alternativas">
+                    <span class="step-dot" id="prog-dot-2" aria-hidden="true">2</span>
+                    <span class="step-text"><span class="step-label">Alternativas</span><span class="step-meta" id="prog-meta-2"></span></span>
+                </button></li>
+                <li><button type="button" class="step-progress-item" id="prog-item-3" onclick="goToStep(4)" aria-label="Scores">
+                    <span class="step-dot" id="prog-dot-3" aria-hidden="true">3</span>
+                    <span class="step-text"><span class="step-label">Scores</span><span class="step-meta" id="prog-meta-3"></span></span>
+                </button></li>
+                <li><button type="button" class="step-progress-item" id="prog-item-4" onclick="goToStep(5)" aria-label="Pesos">
+                    <span class="step-dot" id="prog-dot-4" aria-hidden="true">4</span>
+                    <span class="step-text"><span class="step-label">Pesos</span><span class="step-meta" id="prog-meta-4"></span></span>
+                </button></li>
+                <li><button type="button" class="step-progress-item" id="prog-item-5" onclick="goToStep(6)" aria-label="Tomada de Decisão">
+                    <span class="step-dot" id="prog-dot-5" aria-hidden="true">5</span>
+                    <span class="step-text"><span class="step-label">Tomada de Decisão</span><span class="step-meta" id="prog-meta-5"></span></span>
+                </button></li>
+            </ol>
         </nav>
 
-        <!-- BANNER DE CONTEXTO PERSISTENTE -->
-        <div class="context-banner" id="contextBanner">
-            <div>
-                <div><strong id="contextTitle">—</strong></div>
-                <div class="context-desc" id="contextDesc"></div>
-            </div>
-        </div>
+        <main class="content" id="mainContent" tabindex="-1">
 
-        <!-- CONFIGURAÇÃO DA API -->
-        <div class="api-config" id="apiConfigSection">
-            <div class="api-config-header" onclick="toggleApiConfig()">
-                <h3>🤖 Configuração da IA (Opcional)</h3>
-                <button type="button" class="api-toggle-btn" id="apiToggleBtn" aria-label="Configuração da IA" aria-expanded="true" aria-controls="apiConfigBody">
-                    <svg id="apiToggleIcon" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="18 15 12 9 6 15"></polyline>
-                    </svg>
-                </button>
-            </div>
-            <div class="api-config-body" id="apiConfigBody">
-                <div class="api-config-content">
-                    <div class="api-input-group">
-                        <input type="password" id="apiKey" aria-label="Chave da API do Google Gemini" autocomplete="off" placeholder="Cole sua chave da API do Google Gemini aqui">
-                        <button class="btn btn-primary btn-small" onclick="salvarChaveAPI()">Salvar</button>
-                        <button class="btn btn-secondary btn-small" onclick="limparAPI()">Limpar</button>
-                    </div>
-                    <div id="apiStatus" class="api-status warning">
-                        ⚠️ Configure sua chave da API do Gemini para receber sugestões automáticas de critérios
-                    </div>
-                    <p>
-                        <strong>Como obter:</strong> Acesse <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a> e crie uma chave gratuita
-                    </p>
-                    <p style="margin-top: 6px; font-size: 0.8rem; color: var(--text-soft); padding: 6px; background: rgba(37,150,190,0.05); border-left: 3px solid var(--secondary); border-radius: 0 4px 4px 0;">
-                        💡 <strong>Nota de Design:</strong> As sugestões de IA são intencionalmente limitadas à definição dos critérios. Isso evita "viés inconsciente", garantindo que a pontuação das alternativas e o peso das suas escolhas sejam 100% humanos.
-                    </p>
-                </div>
-            </div>
-        </div>
+            <!-- PROBLEMA -->
+            <section class="step active" id="step1" aria-labelledby="step1-title">
+                <header class="step-header">
+                    <span class="step-number-badge">Problema</span>
+                    <h2 class="step-title" id="step1-title">Definição do problema</h2>
+                    <p class="step-description">Descreva a decisão que será analisada ao longo do processo.</p>
+                </header>
 
-        <!-- SALVAMENTO AUTOMÁTICO -->
-        <div class="controls-section">
-            <p id="saveStatus">💾 Defina um título para salvar sua análise automaticamente</p>
-        </div>
-
-        <div class="content">
-
-            <!-- =====================================================
-                 APRESENTAÇÃO (sem número de passo)
-                 ===================================================== -->
-            <div class="step active" id="step1">
-                <div class="step-header">
-                    <div class="step-number-badge">Apresentação</div>
-                    <h2 class="step-title">Definição do Problema</h2>
-                    <div class="step-description">Descreva o problema de decisão que será analisado ao longo do processo</div>
-                </div>
-
-                <div class="orientation-box">
-                    <strong>📌 O que fazer aqui</strong>
-                    Defina claramente o <em>título</em> e o <em>contexto</em> do problema de decisão. Essas informações ficarão visíveis em todas as etapas seguintes, ajudando a manter o foco durante a análise. Um bom título é objetivo e reflete a escolha que precisa ser feita.
-                </div>
+                <details class="guide" open>
+                    <summary data-icon="lightbulb">Como fazer este passo</summary>
+                    <p>Defina o <em>título</em> e o <em>contexto</em> do problema. Eles ficam visíveis em todas as etapas, ajudando a manter o foco. Um bom título é objetivo e reflete a escolha que precisa ser feita.</p>
+                </details>
 
                 <div class="form-group">
-                    <label for="problemTitle">Título do Problema de Decisão:</label>
+                    <label for="problemTitle">Título do problema de decisão</label>
                     <input type="text" id="problemTitle" placeholder="Ex: Escolha da localização para ginásio poliesportivo">
                 </div>
 
                 <div class="form-group">
-                    <label for="problemDescription">Contexto / Descrição (opcional):</label>
-                    <textarea id="problemDescription" rows="3" placeholder="Descreva brevemente o contexto da decisão, restrições relevantes e quem é o decisor..."></textarea>
+                    <label for="problemDescription">Contexto <span class="optional">(opcional)</span></label>
+                    <textarea id="problemDescription" rows="3" placeholder="Contexto da decisão, restrições relevantes e quem é o decisor"></textarea>
                 </div>
 
                 <div class="navigation">
-                    <div></div>
-                    <div>
-                        <div class="step-indicator">Apresentação</div>
-                        <div class="nav-hint">Defina um título para continuar</div>
-                    </div>
-                    <button class="btn btn-primary" id="btn-next-step1" onclick="nextStep()">Passo 1 →</button>
+                    <button type="button" class="btn btn-ghost" data-action="goHome" data-icon="house">Início</button>
+                    <p class="nav-hint" id="hint-step1" aria-live="polite"></p>
+                    <button type="button" class="btn btn-primary" id="btn-next-step1" onclick="nextStep()">Avançar: Critérios</button>
                 </div>
+            </section>
 
-                <section class="saved-analyses" aria-label="Análises salvas">
-                    <div class="saved-analyses-header">
-                        <h3>📂 Análises salvas</h3>
-                        <button class="btn btn-secondary btn-small" data-action="chooseImportFile">Importar JSON</button>
-                        <input type="file" id="importFile" accept=".json,application/json" hidden data-change="importAnalysisFile">
-                    </div>
-                    <p class="saved-analyses-note">Ficam guardadas apenas neste navegador. Para levar a outro dispositivo, use "Salvar JSON" no resultado.</p>
-                    <div id="savedAnalysesList"></div>
-                </section>
-            </div>
+            <!-- PASSO 1: CRITÉRIOS -->
+            <section class="step" id="step2" aria-labelledby="step2-title">
+                <header class="step-header">
+                    <span class="step-number-badge">Passo 1</span>
+                    <h2 class="step-title" id="step2-title">Escolha dos critérios</h2>
+                    <p class="step-description">Os fatores usados para comparar as alternativas.</p>
+                </header>
 
-            <!-- =====================================================
-                 PASSO 1 – Critérios
-                 ===================================================== -->
-            <div class="step" id="step2">
-                <div class="step-header">
-                    <div class="step-number-badge">Passo 1</div>
-                    <h2 class="step-title">Escolha dos Critérios</h2>
-                    <div class="step-description">Defina os fatores que serão utilizados para avaliar as alternativas</div>
-                </div>
-
-                <div class="orientation-box">
-                    <strong>📌 O que fazer aqui</strong>
-                    Identifique e liste os <em>critérios</em> relevantes para a decisão. Critérios são os aspectos ou atributos que importam para o decisor na hora de comparar as alternativas — por exemplo, custo, qualidade, prazo. Tente listar pelo menos 2 critérios. Evite incluir critérios que não diferenciam as alternativas entre si.
-                </div>
+                <details class="guide" open>
+                    <summary data-icon="lightbulb">Como fazer este passo</summary>
+                    <p>Liste os <em>critérios</em> que importam para o decisor, como custo, qualidade ou prazo. Eles devem ser qualitativos e <strong>diferenciar as alternativas</strong>: um critério em que todas têm o mesmo desempenho não ajuda a decidir. Use o mínimo necessário; são pelo menos 2.</p>
+                </details>
 
                 <div class="form-group">
-                    <label for="criterionInput">Nome do Critério:</label>
-                    <input type="text" id="criterionInput" placeholder="Ex: Custo de implementação">
+                    <label for="criterionInput">Nome do critério</label>
+                    <div class="input-row">
+                        <input type="text" id="criterionInput" placeholder="Ex: Custo de implementação">
+                        <button type="button" class="btn btn-primary" onclick="addCriterion()" data-icon="plus">Adicionar</button>
+                    </div>
                 </div>
-
-                <button class="btn btn-primary" onclick="addCriterion()">+ Adicionar Critério</button>
 
                 <div class="items-list" id="criteriaList">
-                    <p style="color: var(--text-soft); text-align: center; padding: 1rem;">Nenhum critério adicionado ainda</p>
+                    <p class="empty-state">Nenhum critério adicionado ainda</p>
                 </div>
 
                 <div class="navigation">
-                    <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
-                    <div>
-                        <div class="step-indicator">Passo 1 de 5</div>
-                        <div class="nav-hint">Mínimo 2 critérios para continuar</div>
-                    </div>
-                    <button class="btn btn-primary" onclick="nextStep()">Passo 2 →</button>
+                    <button type="button" class="btn btn-secondary" onclick="prevStep()" data-icon="chevron-left">Voltar</button>
+                    <p class="nav-hint" id="hint-step2" aria-live="polite"></p>
+                    <button type="button" class="btn btn-primary" onclick="nextStep()">Avançar: Alternativas</button>
                 </div>
-            </div>
+            </section>
 
-            <!-- =====================================================
-                 PASSO 2 – Alternativas
-                 ===================================================== -->
-            <div class="step" id="step3">
-                <div class="step-header">
-                    <div class="step-number-badge">Passo 2</div>
-                    <h2 class="step-title">Definição das Alternativas</h2>
-                    <div class="step-description">Liste as opções disponíveis para a decisão</div>
-                </div>
+            <!-- PASSO 2: ALTERNATIVAS -->
+            <section class="step" id="step3" aria-labelledby="step3-title">
+                <header class="step-header">
+                    <span class="step-number-badge">Passo 2</span>
+                    <h2 class="step-title" id="step3-title">Definição das alternativas</h2>
+                    <p class="step-description">As opções entre as quais o decisor vai escolher.</p>
+                </header>
 
-                <div class="orientation-box">
-                    <strong>📌 O que fazer aqui</strong>
-                    As <em>alternativas</em> são as opções entre as quais o decisor deve escolher — por exemplo, diferentes fornecedores, locais ou projetos. Pense em todas as possibilidades que poderiam atender ao problema. A análise será mais rica se houver mais alternativas (em torno de 4 a 7 é uma boa referência), no entanto você precisa adicionar pelo menos 2 para prosseguir.
-                </div>
+                <details class="guide" open>
+                    <summary data-icon="lightbulb">Como fazer este passo</summary>
+                    <p>As <em>alternativas</em> são as opções disponíveis, como fornecedores, locais ou projetos. Pense em todas as possibilidades que atendem ao problema: a análise fica mais rica com mais alternativas (de 4 a 7 é uma boa referência). São pelo menos 2.</p>
+                </details>
 
                 <div class="form-group">
-                    <label for="alternativeInput">Nome da Alternativa:</label>
-                    <input type="text" id="alternativeInput" placeholder="Ex: Fornecedor A">
+                    <label for="alternativeInput">Nome da alternativa</label>
+                    <div class="input-row">
+                        <input type="text" id="alternativeInput" placeholder="Ex: Fornecedor A">
+                        <button type="button" class="btn btn-primary" onclick="addAlternative()" data-icon="plus">Adicionar</button>
+                    </div>
                 </div>
 
-                <button class="btn btn-primary" onclick="addAlternative()">+ Adicionar Alternativa</button>
-
                 <div class="items-list" id="alternativesList">
-                    <p style="color: var(--text-soft); text-align: center; padding: 1rem;">Nenhuma alternativa adicionada ainda</p>
+                    <p class="empty-state">Nenhuma alternativa adicionada ainda</p>
                 </div>
 
                 <div class="navigation">
-                    <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
-                    <div>
-                        <div class="step-indicator">Passo 2 de 5</div>
-                        <div class="nav-hint">Mínimo 2 alternativas para continuar</div>
-                    </div>
-                    <button class="btn btn-primary" onclick="nextStep()">Passo 3 →</button>
+                    <button type="button" class="btn btn-secondary" onclick="prevStep()" data-icon="chevron-left">Voltar</button>
+                    <p class="nav-hint" id="hint-step3" aria-live="polite"></p>
+                    <button type="button" class="btn btn-primary" onclick="nextStep()">Avançar: Scores</button>
                 </div>
-            </div>
+            </section>
 
-            <!-- =====================================================
-                 PASSO 3 – Scores (Avaliação das alternativas)
-                 ===================================================== -->
-            <div class="step" id="step4">
-                <div class="step-header">
-                    <div class="step-number-badge">Passo 3</div>
-                    <h2 class="step-title">Atribuição de Scores</h2>
-                    <div class="step-description">Avalie o desempenho de cada alternativa em cada critério</div>
-                </div>
+            <!-- PASSO 3: SCORES -->
+            <section class="step" id="step4" aria-labelledby="step4-title">
+                <header class="step-header">
+                    <span class="step-number-badge">Passo 3</span>
+                    <h2 class="step-title" id="step4-title">Atribuição de scores</h2>
+                    <p class="step-description">O desempenho de cada alternativa em cada critério, de 0 a 10.</p>
+                </header>
 
-                <div class="orientation-box">
-                    <strong>📌 O que fazer aqui</strong>
-                    Para cada critério, siga a sequência em ordem:
-                    <ol style="margin: 8px 0 0 18px; padding: 0;">
-                        <li>Selecione a <strong>melhor</strong> alternativa → defina seu score (âncora superior)</li>
-                        <li>Selecione a <strong>pior</strong> alternativa → defina seu score (âncora inferior)</li>
-                        <li>Posicione as <strong>demais</strong> alternativas comparando com as âncoras. Escala: 0 a 10.</li>
+                <details class="guide" open>
+                    <summary data-icon="lightbulb">Como fazer este passo</summary>
+                    <ol class="guide-list">
+                        <li>Escolha a <strong>melhor</strong> alternativa no critério e defina seu score (âncora superior).</li>
+                        <li>Escolha a <strong>pior</strong> e defina seu score (âncora inferior).</li>
+                        <li>Posicione as <strong>demais</strong> comparando com as âncoras.</li>
                     </ol>
-                    <div style="margin-top: 8px; font-size: 0.82rem; color: var(--text-soft);">⚠️ Se uma alternativa tiver desempenho pior em <em>todos</em> os critérios, ela pode ser eliminada.</div>
-                </div>
+                    <p class="guide-note">Uma alternativa pior em <em>todos</em> os critérios pode ser eliminada.</p>
+                </details>
 
                 <div id="comparisonInterface"></div>
 
                 <div class="navigation">
-                    <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
-                    <div>
-                        <div class="step-indicator">Passo 3 de 5</div>
-                        <div class="nav-hint" id="scoresNavHint">Avalie todos os critérios para continuar</div>
-                    </div>
-                    <button class="btn btn-primary" onclick="nextStep()">Passo 4 →</button>
+                    <button type="button" class="btn btn-secondary" onclick="prevStep()" data-icon="chevron-left">Voltar</button>
+                    <p class="nav-hint" id="hint-step4" aria-live="polite"></p>
+                    <button type="button" class="btn btn-primary" onclick="nextStep()">Avançar: Pesos</button>
                 </div>
-            </div>
+            </section>
 
-            <!-- =====================================================
-                 PASSO 4 – Pesos (Swing Weighting)
-                 ===================================================== -->
-            <div class="step" id="step5">
-                <div class="step-header">
-                    <div class="step-number-badge">Passo 4</div>
-                    <h2 class="step-title">Atribuição de Pesos</h2>
-                    <div class="step-description">Determine a importância relativa de cada critério</div>
-                </div>
+            <!-- PASSO 4: PESOS -->
+            <section class="step" id="step5" aria-labelledby="step5-title">
+                <header class="step-header">
+                    <span class="step-number-badge">Passo 4</span>
+                    <h2 class="step-title" id="step5-title">Atribuição de pesos</h2>
+                    <p class="step-description">A relevância relativa de cada critério na decisão.</p>
+                </header>
 
-                <div class="orientation-box">
-                    <strong>📌 O que fazer aqui</strong>
-                    Os pesos refletem a <strong>relevância de cada critério</strong> na decisão. É importante atribuí-los <strong>depois</strong> dos scores — o intervalo de desempenho de cada critério impacta diretamente seu peso. Selecione o método de pesagem para ver as instruções detalhadas.
-                </div>
+                <details class="guide" open>
+                    <summary data-icon="lightbulb">Como fazer este passo</summary>
+                    <p>Os pesos refletem a <strong>relevância de cada critério</strong>. Eles vêm <strong>depois</strong> dos scores porque o intervalo de desempenho de cada critério influencia sua relevância. Escolha o método para ver as instruções.</p>
+                </details>
 
                 <div class="form-group">
-                    <label for="weightingMethod">Selecione o Método de Pesagem:</label>
+                    <label for="weightingMethod">Método de pesagem</label>
                     <select id="weightingMethod">
                         <option value="">Selecione um método...</option>
-                        <option value="swingweighting">Swing Weighting — método recomendado pelo framework (1)</option>
-                        <option value="ranksum">Rank-Sum — ordenação por importância (2)</option>
+                        <option value="swingweighting">Swing Weighting: recomendado pelo framework</option>
+                        <option value="ranksum">Rank-Sum: ordenação por importância</option>
                     </select>
                 </div>
 
                 <div id="weightingInterface"></div>
 
                 <div class="navigation">
-                    <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
-                    <div>
-                        <div class="step-indicator">Passo 4 de 5</div>
-                        <div class="nav-hint">Preencha o método e os valores para continuar</div>
-                    </div>
-                    <button class="btn btn-primary" onclick="nextStep()">Tomada de Decisão →</button>
+                    <button type="button" class="btn btn-secondary" onclick="prevStep()" data-icon="chevron-left">Voltar</button>
+                    <p class="nav-hint" id="hint-step5" aria-live="polite"></p>
+                    <button type="button" class="btn btn-primary" onclick="nextStep()">Avançar: Tomada de Decisão</button>
                 </div>
-            </div>
+            </section>
 
-            <!-- =====================================================
-                 PASSO 5 – Tomada de Decisão
-                 ===================================================== -->
-            <div class="step" id="step6">
-                <div class="step-header">
-                    <div class="step-number-badge">Passo 5</div>
-                    <h2 class="step-title">Tomada de Decisão</h2>
-                    <div class="step-description">Ranking das alternativas e análise completa da Matriz de Preferência</div>
-                </div>
+            <!-- PASSO 5: TOMADA DE DECISÃO -->
+            <section class="step" id="step6" aria-labelledby="step6-title">
+                <header class="step-header">
+                    <span class="step-number-badge">Passo 5</span>
+                    <h2 class="step-title" id="step6-title">Tomada de Decisão</h2>
+                    <p class="step-description">Ranking das alternativas e análise completa da Matriz de Preferência.</p>
+                </header>
 
-                <div class="orientation-box">
-                    <strong>📌 O que fazer aqui</strong>
-                    O resultado é a soma ponderada dos scores de cada alternativa. A alternativa com maior pontuação é a indicada, mas recomenda-se uma <strong>análise crítica</strong>: verifique se o resultado faz sentido para o contexto, e observe os critérios em que a alternativa vencedora obteve pior desempenho antes de tomar a decisão final.
-                </div>
+                <details class="guide">
+                    <summary data-icon="lightbulb">Como ler o resultado</summary>
+                    <p>O resultado é a soma ponderada dos scores. A alternativa com maior pontuação é a indicada, mas faça uma <strong>análise crítica</strong>: veja se o resultado faz sentido no contexto e observe os critérios em que a vencedora teve pior desempenho antes de decidir.</p>
+                </details>
 
                 <div id="resultsInterface"></div>
 
                 <div class="navigation">
-                    <button class="btn btn-secondary" onclick="prevStep()">← Voltar</button>
-                    <div class="step-indicator">Passo 5 de 5</div>
-                    <button class="btn btn-success" onclick="restart()">🔄 Nova Análise</button>
+                    <button type="button" class="btn btn-secondary" onclick="prevStep()" data-icon="chevron-left">Voltar</button>
+                    <p class="nav-hint" id="hint-step6" aria-live="polite"></p>
+                    <button type="button" class="btn btn-success" onclick="restart()" data-icon="plus">Nova análise</button>
                 </div>
-            </div>
+            </section>
+        </main>
 
-        </div><!-- /.content -->
-    </div><!-- /.container -->
+        <aside class="matrix-panel" id="matrixPanel" aria-labelledby="matrixPanelTitle">
+            <div class="matrix-panel-header">
+                <h2 id="matrixPanelTitle">Matriz em construção</h2>
+                <button type="button" class="icon-btn" data-action="toggleMatrixPanel" aria-label="Ocultar matriz em construção" data-icon="x"></button>
+            </div>
+            <p class="matrix-panel-hint" id="matrixPanelHint"></p>
+            <div class="matrix-panel-body" id="buildingMatrix"></div>
+        </aside>
+    </div>
+
+    <!-- =====================================================
+         CONFIGURAÇÕES
+         ===================================================== -->
+    <div class="drawer-backdrop" id="settingsBackdrop" data-action="closeSettings" hidden></div>
+    <aside class="drawer" id="settingsDrawer" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+        <div class="drawer-header">
+            <h2 id="settingsTitle">Configurações</h2>
+            <button type="button" class="icon-btn" data-action="closeSettings" aria-label="Fechar configurações" data-icon="x"></button>
+        </div>
+
+        <section class="drawer-section" id="apiConfigSection" aria-labelledby="apiConfigTitle">
+            <h3 id="apiConfigTitle" data-icon="sparkles">Sugestões de critérios por IA <span class="optional">(opcional)</span></h3>
+            <p>Com uma chave do Google Gemini, a ferramenta sugere critérios a partir do título e do contexto do problema.</p>
+            <div class="api-input-group">
+                <input type="password" id="apiKey" aria-label="Chave da API do Google Gemini" autocomplete="off" placeholder="Cole sua chave da API do Google Gemini">
+                <button type="button" class="btn btn-primary btn-small" onclick="salvarChaveAPI()">Salvar</button>
+                <button type="button" class="btn btn-secondary btn-small" onclick="limparAPI()">Limpar</button>
+            </div>
+            <div id="apiStatus" class="api-status warning" role="status">Nenhuma chave configurada. As sugestões de critérios por IA estão desligadas.</div>
+            <p class="drawer-note">A chave fica salva só neste navegador. Para obter uma, acesse o <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>. Em computadores compartilhados, use "Limpar" ao terminar.</p>
+            <p class="drawer-note">As sugestões são limitadas aos critérios, para que scores e pesos continuem sendo julgamento humano.</p>
+        </section>
+
+        <section class="drawer-section" aria-labelledby="aboutTitle">
+            <h3 id="aboutTitle" data-icon="info">Sobre</h3>
+            <p>Ferramenta acadêmica de apoio à decisão multicritério baseada no método da Matriz de Preferência.</p>
+            <p>Desenvolvida por <a href="https://www.linkedin.com/in/opedroalves/" target="_blank" rel="noopener">Pedro Henrique Alves de Araujo Silva</a> e <a href="https://www.linkedin.com/in/laura-rieko-imai/" target="_blank" rel="noopener">Laura Rieko Marçal Imai</a>.</p>
+            <p><a href="https://github.com/pedrohaas/matriz-de-preferencia" target="_blank" rel="noopener">Código-fonte no GitHub</a> · <a href="https://github.com/pedrohaas/matriz-de-preferencia/blob/main/LICENSE" target="_blank" rel="noopener">Licença MIT</a></p>
+        </section>
+    </aside>
 
     <!-- =====================================================
          MODAL DE SUGESTÕES DA IA
@@ -346,43 +344,18 @@
     <div class="modal-overlay" id="aiSuggestionModal">
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle" aria-describedby="aiModalDescription">
             <div class="modal-header">
-                <h3 id="aiModalTitle">🤖 Sugestões Inteligentes</h3>
-                <p id="aiModalDescription">O assistente analisou o problema e sugeriu os seguintes critérios para sua decisão. Clique para selecionar/deselecionar.</p>
+                <h3 id="aiModalTitle">Sugestões de critérios</h3>
+                <p id="aiModalDescription">Critérios sugeridos para este problema. Toque para selecionar ou remover.</p>
             </div>
-            <div class="modal-body" id="aiCriteriaContainer">
-                <!-- Chips de critérios serão inseridos aqui dinamicamente -->
-            </div>
+            <div class="modal-body" id="aiCriteriaContainer"></div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeAiModal(false)">Ignorar</button>
-                <button class="btn btn-primary" onclick="closeAiModal(true)">Adicionar Selecionados ✨</button>
+                <button type="button" class="btn btn-secondary" onclick="closeAiModal(false)">Ignorar</button>
+                <button type="button" class="btn btn-primary" onclick="closeAiModal(true)">Adicionar Selecionados</button>
             </div>
         </div>
     </div>
 
     <!-- Relatório: só aparece na impressão -->
     <div id="printReport"></div>
-
-    <footer>
-        <div class="footer-inner">
-            <div class="footer-section about">
-                <h4>Sobre o Projeto</h4>
-                <p>Ferramenta acadêmica de apoio à decisão multicritério baseada no método da Matriz de Preferência.</p>
-            </div>
-            <div class="footer-section developers">
-                <h4>Desenvolvedores</h4>
-                <p><a href="https://www.linkedin.com/in/opedroalves/" target="_blank" rel="noopener">Pedro Henrique Alves de Araujo Silva</a></p>
-                <p><a href="https://www.linkedin.com/in/laura-rieko-imai/" target="_blank" rel="noopener">Laura Rieko Marçal Imai</a></p>
-            </div>
-            <div class="footer-section links">
-                <h4>Links Úteis</h4>
-                <p><a href="https://github.com/pedrohaas/matriz-de-preferencia" target="_blank" rel="noopener">Código Fonte no GitHub</a></p>
-                <p><a href="https://github.com/pedrohaas/matriz-de-preferencia/blob/main/LICENSE" target="_blank" rel="noopener">Licença MIT</a></p>
-            </div>
-        </div>
-        <div class="footer-bottom">
-            <p>Copyright © 2025 | Lançado sob a Licença MIT.</p>
-        </div>
-    </footer>
-
 </body>
 </html>

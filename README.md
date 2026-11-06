@@ -33,6 +33,9 @@ Através de uma interface passo a passo, o usuário divide o problema em partes 
 
 ## 🧩 Funcionalidades Principais
 
+- **Tela inicial com exemplos**: análises salvas, importação de JSON e cinco exemplos fictícios prontos para aula.
+- **Matriz em construção**: um painel mostra a Tabela 5.1 do livro sendo preenchida a cada passo. Pode ser ocultado.
+- **Modo de apresentação**: amplia a interface para projeção em sala de aula.
 - **Wizard Passo a Passo**: Processo guiado estruturado em passos claros (Apresentação, Critérios, Alternativas, Scores, Pesos e Tomada de Decisão).
 - **Avaliação de Desempenho Visual (Scores)**: Sistema inteligente que solicita a definição da melhor alternativa (âncora superior), da pior alternativa (âncora inferior) e o posicionamento das demais em relação a elas.
 - **Ajuste Dinâmico de Pesos**: Na tela de resultados, é possível utilizar _sliders_ interativos para alterar o peso dos critérios em tempo real e visualizar imediatamente como isso afeta o ranking, com suporte opcional a **Normalização Automática**.
@@ -76,6 +79,7 @@ Para ajudar a superar a "síndrome da página em branco" durante a definição d
 
 - **Frontend Core**: HTML5, CSS3, e JavaScript Vanilla moderno (sem frameworks como React ou Angular, garantindo alta performance e simplicidade).
 - **Bibliotecas**: `html2canvas` 1.4.1, incluída em `libs/` para funcionar sem depender de CDN (conversão da árvore DOM em imagens PNG).
+- **Fontes e ícones locais**: [Inter](https://rsms.me/inter/) e [Source Serif 4](https://github.com/adobe-fonts/source-serif) (licença SIL OFL 1.1, em `fonts/`) e ícones do [Lucide](https://lucide.dev) (licença ISC, em `js/icons.js`). Nada é carregado de serviços externos.
 - **Integrações em Nuvem**: REST API do Google Gemini (acesso direto assíncrono).
 - **Arquitetura**: Sistema modular, com scripts divididos por responsabilidades e domínios.
 
@@ -87,10 +91,15 @@ Para ajudar a superar a "síndrome da página em branco" durante a definição d
 matriz-de-preferencia/
 │
 ├── index.html           # Página principal com a estrutura SPA
-├── style.css            # Folha de estilos e variáveis do design system
+├── style.css            # Design system: tokens, componentes, layout e impressão
+├── fonts/               # Fontes locais e suas licenças
 │
 ├── js/                  # Scripts e lógicas modulares
 │   ├── canonical-site.js   # Redireciona o endereço antigo para o site oficial
+│   ├── preferences.js      # Preferências de exibição (painel da matriz, apresentação)
+│   ├── icons.js            # Ícones SVG embutidos
+│   ├── shell.js            # Tela inicial, matriz em construção, dicas e configurações
+│   ├── examples.js         # Exemplos fictícios da tela inicial
 │   ├── main.js             # Inicialização, eventos gerais e state reset
 │   ├── utils.js            # Escape de texto, delegação de eventos e notificações Toast
 │   ├── state.js            # Objeto único com o estado da análise
@@ -111,6 +120,17 @@ matriz-de-preferencia/
 └── libs/                # Dependências locais
     └── html2canvas.min.js
 ```
+
+---
+
+## ↩️ Voltar à interface anterior
+
+A interface anterior à reforma visual está marcada com a tag `interface-classica`. Para restaurá-la:
+
+- **Rápido, sem mudar o código:** no painel da Vercel, em *Deployments*, escolha um deploy anterior à reforma e use **Promote to Production**.
+- **Definitivo, no código:** reverta os merges da reforma (`git revert -m 1 <merge>`) ou compare com `git diff interface-classica`.
+
+Para uma tela parecida com a anterior sem voltar versão, oculte a **Matriz em construção** pelo botão "Matriz" do cabeçalho. A escolha fica salva no navegador.
 
 ---
 
