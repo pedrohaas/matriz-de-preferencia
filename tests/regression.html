@@ -2192,6 +2192,140 @@ test('Nenhuma ação usa caixas de confirmação do navegador', async () => {
     equal(asked, 0, 'confirmações');
 });
 
+// ---- Régua, correção de scores e revisões do livro ----
+function anchors(w, best, bestScore, worst, worstScore) {
+    card(w, best).click();
+    el(w, 'bestScore').value = bestScore;
+    button(w, 'Confirmar').click();
+    card(w, worst).click();
+    el(w, 'worstScore').value = worstScore;
+    button(w, 'Confirmar').click();
+}
+const entryOf = (w, name) => read(w, `state.comparisonData['${criterionId(w, name)}']`);
+const scoreOf = (w, criterion, alternative) => read(w, `getScore(state.comparisonData['${criterionId(w, criterion)}'], '${alternativeId(w, alternative)}')`);
+
+test('Núcleo: critérios com o mesmo score em todas as alternativas', async () => {
+    const w = await load();
+    const data = scoresTable({ c1: { a: 5, b: 5, c: 5 }, c2: { a: 5, b: 6, c: 5 }, c3: { a: 5, b: 5 } });
+    equal(w.findUniformCriteria(['c1', 'c2', 'c3'], ['a', 'b', 'c'], data), ['c1'], 'uniformes');
+});
+
+test('Núcleo: limites para corrigir um score sem desfazer as âncoras', async () => {
+    const w = await load();
+    const entry = { best: 'a', bestScore: 9, worst: 'b', worstScore: 3, scores: { c: 6, d: 7 } };
+    const bounds = id => JSON.parse(w.JSON.stringify(w.getScoreBounds(entry, id, ['a', 'b', 'c', 'd'])));
+    equal(bounds('a'), { min: 7, max: 10 }, 'melhor');
+    equal(bounds('b'), { min: 0, max: 6 }, 'pior');
+    equal(bounds('c'), { min: 3, max: 9 }, 'intermediária');
+});
+
+test('Régua posiciona a alternativa entre as âncoras', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    anchors(w, 'A', 9, 'B', 3);
+    const ruler = el(w, 'rulerInput');
+    equal(w.document.activeElement, ruler, 'foco na régua');
+    equal([ruler.min, ruler.max, ruler.value], ['3', '9', '6'], 'faixa e valor inicial no meio');
+    equal(ruler.getAttribute('aria-label'), 'Score de C em C1, entre 3 e 9', 'nome acessível');
+    equal(w.document.querySelectorAll('.ruler-marker').length, 2, 'âncoras na régua');
+    setField(w, 'rulerInput', '7.3');
+    equal(el(w, 'rulerValue').textContent, '7.3', 'valor exibido');
+    action(w, 'confirmRulerScore').click();
+    equal(scoreOf(w, 'C1', 'C'), 7.3, 'score definido');
+    equal(w.document.querySelectorAll('.ruler-marker').length, 3, 'régua de conclusão com as três');
+});
+
+test('Régua aceita Enter e as setas do teclado', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    anchors(w, 'A', 10, 'B', 0);
+    const ruler = el(w, 'rulerInput');
+    ruler.focus();
+    ruler.value = '2.5';
+    key(w, 'Enter');
+    equal(scoreOf(w, 'C1', 'C'), 2.5, 'Enter confirma');
+});
+
+test('Sem faixa entre as âncoras, a régua dá lugar ao "mesmo nível"', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    anchors(w, 'A', 5, 'B', 5);
+    equal(el(w, 'rulerInput'), null, 'sem régua de posicionamento');
+    equal(w.document.querySelector('.position-alternatives').open, true, 'opções abertas');
+    card(w, 'Mesmo nível de "A"').click();
+    equal(scoreOf(w, 'C1', 'C'), 5, 'score');
+});
+
+test('Corrigir um score respeita os limites e não exige reiniciar o critério', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2'], ['A', 'B', 'C']);
+    anchors(w, 'A', 9, 'B', 3);
+    setField(w, 'rulerInput', '6');
+    action(w, 'confirmRulerScore').click();
+    const edit = name => w.document.querySelector(`[data-action="editScore"][data-alternative="${alternativeId(w, name)}"]`);
+
+    edit('C').click();
+    const input = el(w, 'editScoreInput');
+    equal(w.document.activeElement, input, 'foco no campo');
+    equal([input.min, input.max], ['3', '9'], 'limites da intermediária');
+    input.value = '9.5';
+    key(w, 'Enter');
+    equal(scoreOf(w, 'C1', 'C'), 6, 'fora do limite é recusado');
+    equal(w.document.querySelector('.toast-error .toast-text').textContent.includes('entre 3 e 9'), true, 'mensagem');
+    el(w, 'editScoreInput').value = '8';
+    key(w, 'Enter');
+    equal(scoreOf(w, 'C1', 'C'), 8, 'corrigido');
+
+    edit('A').click();
+    equal(el(w, 'editScoreInput').min, '8', 'melhor não fica abaixo das outras');
+    el(w, 'editScoreInput').value = '10';
+    action(w, 'confirmScoreEdit').click();
+    equal(entryOf(w, 'C1').bestScore, 10, 'âncora superior corrigida');
+
+    edit('B').click();
+    action(w, 'cancelScoreEdit').click();
+    equal(el(w, 'editScoreInput'), null, 'cancelado');
+    equal(buildingRows(w)[1], ['C1', '·', '10', '3', '8'], 'matriz atualizada');
+});
+
+test('Ao concluir, o livro recomenda revisar critério uniforme e alternativa dominada', async () => {
+    const w = await load();
+    await setup(w, ['C1', 'C2', 'Igual'], ['A', 'B', 'C']);
+    anchors(w, 'A', 9, 'B', 3);
+    setField(w, 'rulerInput', '5');
+    action(w, 'confirmRulerScore').click();
+    goToCriterion(w, 1);
+    anchors(w, 'A', 8, 'B', 2);
+    setField(w, 'rulerInput', '4');
+    action(w, 'confirmRulerScore').click();
+    goToCriterion(w, 2);
+    anchors(w, 'A', 5, 'B', 5);
+    card(w, 'Mesmo nível de "A"').click();
+
+    const checks = el(w, 'bookChecks');
+    equal(checks.textContent.includes('O critério Igual tem o mesmo score'), true, 'critério uniforme');
+    equal(checks.textContent.includes('B é dominada por A, C'), true, 'dominada');
+    checks.querySelector('[data-action="removeCriterionFromStep3"]').click();
+    equal(read(w, 'state.criteria.length'), 2, 'critério removido');
+    action(w, 'undo').click();
+    equal(read(w, 'state.criteria.length'), 3, 'remoção desfeita');
+});
+
+test('Régua não transborda com nomes longos no celular', async () => {
+    const w = await load(320);
+    const long = 'NomeMuitoLongoSemEspacos'.repeat(4);
+    await setup(w, ['C1', 'C2'], [`A${long}`, `B${long}`, `C${long}`]);
+    card(w, `A${long}`).click();
+    el(w, 'bestScore').value = 10;
+    button(w, 'Confirmar').click();
+    card(w, `B${long}`).click();
+    el(w, 'worstScore').value = 0;
+    button(w, 'Confirmar').click();
+    assertFits(w, 'régua');
+    action(w, 'confirmRulerScore').click();
+    assertFits(w, 'régua de conclusão');
+});
+
 // ---- Site oficial ----
 function fakeStorage(items) {
     const data = { ...items };
