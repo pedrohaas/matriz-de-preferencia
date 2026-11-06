@@ -227,3 +227,29 @@ function compareWeightSets(criterionIds, alternativeIds, comparisonData, weightS
         return { id, finals, positions, winners: topAlternatives(finals, sortedIds) };
     });
 }
+
+/** Critérios em que todas as alternativas têm o mesmo score: não ajudam a comparar. */
+function findUniformCriteria(criterionIds, alternativeIds, comparisonData) {
+    return criterionIds.filter(id => {
+        const scores = alternativeIds.map(alternativeId => getScore(comparisonData[id], alternativeId));
+        return scores.length > 1
+            && scores.every(score => score !== null)
+            && scores.every(score => Math.abs(score - scores[0]) < FLOAT_TOLERANCE);
+    });
+}
+
+/**
+ * Faixa em que o score de uma alternativa pode ser alterado sem desfazer as âncoras:
+ * a melhor não pode ficar abaixo de nenhuma outra, a pior não pode ficar acima, e as
+ * demais ficam entre as duas.
+ */
+function getScoreBounds(entry, alternativeId, alternativeIds) {
+    const others = alternativeIds
+        .filter(id => id !== alternativeId)
+        .map(id => getScore(entry, id))
+        .filter(score => score !== null);
+
+    if (alternativeId === entry.best) return { min: others.length ? Math.max(...others) : 0, max: 10 };
+    if (alternativeId === entry.worst) return { min: 0, max: others.length ? Math.min(...others) : 10 };
+    return { min: entry.worstScore, max: entry.bestScore };
+}
