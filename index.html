@@ -6,26 +6,26 @@
     <title>Matriz de Preferência</title>
     <meta name="description" content="Ferramenta de apoio à decisão multicritério baseada no método da Matriz de Preferência.">
     <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=16">
+    <link rel="stylesheet" href="style.css?v=17">
 
-    <script src="js/canonical-site.js?v=16"></script>
-    <script src="js/preferences.js?v=16"></script>
+    <script src="js/canonical-site.js?v=17"></script>
+    <script src="js/preferences.js?v=17"></script>
     <script src="libs/html2canvas.min.js"></script>
-    <script src="js/utils.js?v=16"></script>
-    <script src="js/icons.js?v=16"></script>
-    <script src="js/state.js?v=16"></script>
-    <script src="js/decision-core.js?v=16"></script>
-    <script src="js/data-input.js?v=16"></script>
-    <script src="js/swing-weighting.js?v=16"></script>
-    <script src="js/comparison.js?v=16"></script>
-    <script src="js/ai-suggestions.js?v=16"></script>
-    <script src="js/decision-logic.js?v=16"></script>
-    <script src="js/report.js?v=16"></script>
-    <script src="js/export-utils.js?v=16"></script>
-    <script src="js/examples.js?v=16"></script>
-    <script src="js/shell.js?v=16"></script>
-    <script src="js/main.js?v=16"></script>
-    <script src="js/auto-save.js?v=16"></script>
+    <script src="js/utils.js?v=17"></script>
+    <script src="js/icons.js?v=17"></script>
+    <script src="js/state.js?v=17"></script>
+    <script src="js/decision-core.js?v=17"></script>
+    <script src="js/data-input.js?v=17"></script>
+    <script src="js/swing-weighting.js?v=17"></script>
+    <script src="js/comparison.js?v=17"></script>
+    <script src="js/ai-suggestions.js?v=17"></script>
+    <script src="js/decision-logic.js?v=17"></script>
+    <script src="js/report.js?v=17"></script>
+    <script src="js/export-utils.js?v=17"></script>
+    <script src="js/examples.js?v=17"></script>
+    <script src="js/shell.js?v=17"></script>
+    <script src="js/main.js?v=17"></script>
+    <script src="js/auto-save.js?v=17"></script>
 </head>
 <body class="view-home">
     <a class="skip-link" href="#mainContent">Pular para o conteúdo</a>
@@ -73,7 +73,7 @@
             </div>
         </section>
 
-        <section class="home-section saved-analyses" aria-labelledby="savedTitle">
+        <section class="home-section saved-analyses" id="savedSection" aria-labelledby="savedTitle">
             <div class="saved-analyses-header">
                 <h2 id="savedTitle">Análises salvas <span class="saved-count" id="savedCount"></span></h2>
                 <div class="saved-search" id="savedSearchBox" hidden>
@@ -85,10 +85,16 @@
             <div class="saved-analyses-list" id="savedAnalysesList" role="region" aria-labelledby="savedTitle"></div>
         </section>
 
-        <section class="home-section" aria-labelledby="examplesTitle">
-            <h2 id="examplesTitle">Exemplos</h2>
+        <section class="home-section examples-section" aria-labelledby="examplesTitle">
+            <div class="saved-analyses-header">
+                <h2 id="examplesTitle">Exemplos</h2>
+                <div class="examples-nav">
+                    <button type="button" class="icon-btn" id="examplesPrev" data-action="scrollExamples" data-direction="-1" aria-label="Exemplos anteriores" aria-controls="examplesList" data-icon="chevron-left"></button>
+                    <button type="button" class="icon-btn" id="examplesNext" data-action="scrollExamples" data-direction="1" aria-label="Próximos exemplos" aria-controls="examplesList" data-icon="chevron-right"></button>
+                </div>
+            </div>
             <p class="saved-analyses-note">Análises fictícias, prontas para explorar ou apresentar em aula. Abrir um exemplo cria uma cópia.</p>
-            <div class="examples-grid" id="examplesList"></div>
+            <div class="examples-track" id="examplesList" role="region" aria-labelledby="examplesTitle"></div>
         </section>
     </main>
 
@@ -97,28 +103,29 @@
          ===================================================== -->
     <div class="wizard" id="wizardView">
         <nav class="stepper" id="stepProgressBar" aria-label="Passos da análise">
+            <button type="button" class="icon-btn stepper-toggle" id="toggleStepper" data-action="toggleStepper" aria-expanded="true" aria-controls="stepProgressBar" aria-label="Recolher passos" title="Recolher passos"></button>
             <ol class="stepper-list">
-                <li><button type="button" class="step-progress-item" id="prog-item-0" onclick="goToStep(1)" aria-label="Problema" aria-current="step">
+                <li><button type="button" class="step-progress-item" id="prog-item-0" onclick="goToStep(1)" aria-label="Problema" title="Problema" aria-current="step">
                     <span class="step-dot intro active" id="prog-dot-0" aria-hidden="true">•</span>
                     <span class="step-text"><span class="step-label">Problema</span><span class="step-meta" id="prog-meta-0"></span></span>
                 </button></li>
-                <li><button type="button" class="step-progress-item" id="prog-item-1" onclick="goToStep(2)" aria-label="Critérios">
+                <li><button type="button" class="step-progress-item" id="prog-item-1" onclick="goToStep(2)" aria-label="Critérios" title="Critérios">
                     <span class="step-dot" id="prog-dot-1" aria-hidden="true">1</span>
                     <span class="step-text"><span class="step-label">Critérios</span><span class="step-meta" id="prog-meta-1"></span></span>
                 </button></li>
-                <li><button type="button" class="step-progress-item" id="prog-item-2" onclick="goToStep(3)" aria-label="Alternativas">
+                <li><button type="button" class="step-progress-item" id="prog-item-2" onclick="goToStep(3)" aria-label="Alternativas" title="Alternativas">
                     <span class="step-dot" id="prog-dot-2" aria-hidden="true">2</span>
                     <span class="step-text"><span class="step-label">Alternativas</span><span class="step-meta" id="prog-meta-2"></span></span>
                 </button></li>
-                <li><button type="button" class="step-progress-item" id="prog-item-3" onclick="goToStep(4)" aria-label="Scores">
+                <li><button type="button" class="step-progress-item" id="prog-item-3" onclick="goToStep(4)" aria-label="Scores" title="Scores">
                     <span class="step-dot" id="prog-dot-3" aria-hidden="true">3</span>
                     <span class="step-text"><span class="step-label">Scores</span><span class="step-meta" id="prog-meta-3"></span></span>
                 </button></li>
-                <li><button type="button" class="step-progress-item" id="prog-item-4" onclick="goToStep(5)" aria-label="Pesos">
+                <li><button type="button" class="step-progress-item" id="prog-item-4" onclick="goToStep(5)" aria-label="Pesos" title="Pesos">
                     <span class="step-dot" id="prog-dot-4" aria-hidden="true">4</span>
                     <span class="step-text"><span class="step-label">Pesos</span><span class="step-meta" id="prog-meta-4"></span></span>
                 </button></li>
-                <li><button type="button" class="step-progress-item" id="prog-item-5" onclick="goToStep(6)" aria-label="Tomada de Decisão">
+                <li><button type="button" class="step-progress-item" id="prog-item-5" onclick="goToStep(6)" aria-label="Tomada de Decisão" title="Tomada de Decisão">
                     <span class="step-dot" id="prog-dot-5" aria-hidden="true">5</span>
                     <span class="step-text"><span class="step-label">Tomada de Decisão</span><span class="step-meta" id="prog-meta-5"></span></span>
                 </button></li>
@@ -309,10 +316,14 @@
         <aside class="matrix-panel" id="matrixPanel" aria-labelledby="matrixPanelTitle">
             <div class="matrix-panel-header">
                 <h2 id="matrixPanelTitle">Matriz em construção</h2>
-                <button type="button" class="icon-btn" data-action="toggleMatrixPanel" aria-label="Ocultar matriz em construção" data-icon="x"></button>
+                <button type="button" class="icon-btn" data-action="toggleMatrixPanel" aria-label="Recolher matriz em construção" title="Recolher matriz" data-icon="panel-right-close"></button>
             </div>
             <p class="matrix-panel-hint" id="matrixPanelHint"></p>
             <div class="matrix-panel-body" id="buildingMatrix"></div>
+            <a class="matrix-panel-book" href="https://www.ciadufscar.com/" target="_blank" rel="noopener">
+                <img src="images/logo.webp" width="432" height="432" alt="Logo Decisão de Valor" loading="lazy">
+                <span>Mais sobre o método em <strong>ciadufscar.com</strong></span>
+            </a>
         </aside>
     </div>
 
