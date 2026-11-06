@@ -453,7 +453,7 @@ function renderRecommendation(finals, sortedIds) {
             <div class="recommendation-attention">
                 <h4>${icon('triangle-alert')} Pontos de atenção</h4>
                 ${weaknesses.length
-                    ? `<p>Antes de decidir, o livro recomenda avaliar os critérios em que a vencedora foi pior:</p><ul>${items}</ul>`
+                    ? `<p>Critérios em que a vencedora ficou atrás das demais alternativas. Vale avaliá-los antes de decidir:</p><ul>${items}</ul>`
                     : '<p>A vencedora não fica abaixo da média em nenhum critério.</p>'}
             </div>
         `;

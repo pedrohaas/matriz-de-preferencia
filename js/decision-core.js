@@ -256,7 +256,7 @@ function getScoreBounds(entry, alternativeId, alternativeIds) {
 
 /**
  * Critérios em que a alternativa teve o pior score ou ficou abaixo da média das
- * alternativas: os pontos que o livro pede para examinar antes de decidir.
+ * alternativas: pontos a examinar antes de decidir.
  * Critérios em que todas empatam são ignorados.
  */
 function findWeaknesses(criterionIds, alternativeIds, comparisonData, alternativeId) {
