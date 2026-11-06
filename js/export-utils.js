@@ -108,8 +108,13 @@ async function saveResultsImage() {
     });
 
     // Esconder na imagem os botões de ajuste de pesos e de exportação
-    clone.querySelectorAll('.weight-action-buttons, .results-export-actions, .scenario-controls').forEach(element => {
+    clone.querySelectorAll('.weight-action-buttons, .results-export-actions, .scenario-controls, .result-tabs').forEach(element => {
         element.style.display = 'none';
+    });
+    // Na imagem, todas as abas aparecem em sequência, cada uma com seu título
+    clone.querySelectorAll('[role="tabpanel"]').forEach(panel => {
+        panel.hidden = false;
+        panel.classList.add('is-exported');
     });
 
     // Injetar o CSS Inline para o html2canvas ler corretamente em ambiente local (file://)
