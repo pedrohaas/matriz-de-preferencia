@@ -6,26 +6,26 @@
     <title>Matriz de Preferência</title>
     <meta name="description" content="Ferramenta de apoio à decisão multicritério baseada no método da Matriz de Preferência.">
     <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=11">
+    <link rel="stylesheet" href="style.css?v=12">
 
-    <script src="js/canonical-site.js?v=11"></script>
-    <script src="js/preferences.js?v=11"></script>
+    <script src="js/canonical-site.js?v=12"></script>
+    <script src="js/preferences.js?v=12"></script>
     <script src="libs/html2canvas.min.js"></script>
-    <script src="js/utils.js?v=11"></script>
-    <script src="js/icons.js?v=11"></script>
-    <script src="js/state.js?v=11"></script>
-    <script src="js/decision-core.js?v=11"></script>
-    <script src="js/data-input.js?v=11"></script>
-    <script src="js/swing-weighting.js?v=11"></script>
-    <script src="js/comparison.js?v=11"></script>
-    <script src="js/ai-suggestions.js?v=11"></script>
-    <script src="js/decision-logic.js?v=11"></script>
-    <script src="js/report.js?v=11"></script>
-    <script src="js/export-utils.js?v=11"></script>
-    <script src="js/examples.js?v=11"></script>
-    <script src="js/shell.js?v=11"></script>
-    <script src="js/main.js?v=11"></script>
-    <script src="js/auto-save.js?v=11"></script>
+    <script src="js/utils.js?v=12"></script>
+    <script src="js/icons.js?v=12"></script>
+    <script src="js/state.js?v=12"></script>
+    <script src="js/decision-core.js?v=12"></script>
+    <script src="js/data-input.js?v=12"></script>
+    <script src="js/swing-weighting.js?v=12"></script>
+    <script src="js/comparison.js?v=12"></script>
+    <script src="js/ai-suggestions.js?v=12"></script>
+    <script src="js/decision-logic.js?v=12"></script>
+    <script src="js/report.js?v=12"></script>
+    <script src="js/export-utils.js?v=12"></script>
+    <script src="js/examples.js?v=12"></script>
+    <script src="js/shell.js?v=12"></script>
+    <script src="js/main.js?v=12"></script>
+    <script src="js/auto-save.js?v=12"></script>
 </head>
 <body class="view-home">
     <a class="skip-link" href="#mainContent">Pular para o conteúdo</a>
@@ -168,9 +168,11 @@
                 <div class="form-group">
                     <label for="criterionInput">Nome do critério</label>
                     <div class="input-row">
-                        <input type="text" id="criterionInput" placeholder="Ex: Custo de implementação">
+                        <input type="text" id="criterionInput" aria-describedby="criterionInput-help criterionInput-error" placeholder="Ex: Custo de implementação">
                         <button type="button" class="btn btn-primary" onclick="addCriterion()" data-icon="plus">Adicionar</button>
                     </div>
+                    <p class="field-help" id="criterionInput-help">Dica: cole uma lista com um nome por linha para adicionar vários de uma vez.</p>
+                    <p class="field-error" id="criterionInput-error" aria-live="polite"></p>
                 </div>
 
                 <div class="items-list" id="criteriaList">
@@ -200,9 +202,11 @@
                 <div class="form-group">
                     <label for="alternativeInput">Nome da alternativa</label>
                     <div class="input-row">
-                        <input type="text" id="alternativeInput" placeholder="Ex: Fornecedor A">
+                        <input type="text" id="alternativeInput" aria-describedby="alternativeInput-help alternativeInput-error" placeholder="Ex: Fornecedor A">
                         <button type="button" class="btn btn-primary" onclick="addAlternative()" data-icon="plus">Adicionar</button>
                     </div>
+                    <p class="field-help" id="alternativeInput-help">Dica: cole uma lista com um nome por linha para adicionar vários de uma vez.</p>
+                    <p class="field-error" id="alternativeInput-error" aria-live="polite"></p>
                 </div>
 
                 <div class="items-list" id="alternativesList">
@@ -353,6 +357,13 @@
                 <button type="button" class="btn btn-primary" onclick="closeAiModal(true)">Adicionar Selecionados</button>
             </div>
         </div>
+    </div>
+
+    <!-- Desfazer a última ação -->
+    <div class="undo-bar" id="undoBar" role="status" hidden>
+        <span class="undo-text"></span>
+        <button type="button" class="btn btn-small undo-button" data-action="undo" data-icon="undo-2">Desfazer</button>
+        <button type="button" class="icon-btn undo-close" data-action="dismissUndo" aria-label="Fechar aviso" data-icon="x"></button>
     </div>
 
     <!-- Relatório: só aparece na impressão -->

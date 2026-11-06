@@ -37,25 +37,95 @@ function nameExists(kind, name) {
     return ITEM_KINDS[kind].items().some(item => item.name === name);
 }
 
+// Erro mostrado junto ao campo, onde o usuário está olhando, em vez de num aviso no canto
+function setFieldError(kind, message) {
+    const input = document.getElementById(ITEM_KINDS[kind].inputId);
+    const error = document.getElementById(`${ITEM_KINDS[kind].inputId}-error`);
+    error.textContent = message;
+    if (message) {
+        input.setAttribute('aria-invalid', 'true');
+    } else {
+        input.removeAttribute('aria-invalid');
+    }
+}
+
 function addItem(kind) {
     const config = ITEM_KINDS[kind];
     const input = document.getElementById(config.inputId);
     const name = input.value.trim();
 
     if (!name) {
-        showError(config.messages.empty);
+        setFieldError(kind, config.messages.empty);
+        input.focus();
         return;
     }
     if (nameExists(kind, name)) {
-        showError(config.messages.duplicate);
+        setFieldError(kind, config.messages.duplicate);
+        input.focus();
         return;
     }
 
+    setFieldError(kind, '');
     config.items().push({ id: createId(config.idPrefix), name });
     input.value = '';
     renderItemList(kind);
     showSuccess(config.messages.added);
     scheduleAutoSave();
+}
+
+// Remove marcadores de lista e numeração de linhas coladas ("1. Custo", "- Prazo")
+function cleanPastedName(line) {
+    return line.trim().replace(/^(?:[-*+•]+\s+|\d+[.)]\s+)/, '').trim();
+}
+
+// Colar várias linhas adiciona um item por linha
+function addPastedItems(kind, text) {
+    const config = ITEM_KINDS[kind];
+    const names = text.split(/\r?\n/).map(cleanPastedName).filter(Boolean);
+    const added = [];
+    const skipped = [];
+
+    names.forEach(name => {
+        if (nameExists(kind, name)) {
+            skipped.push(name);
+        } else {
+            config.items().push({ id: createId(config.idPrefix), name });
+            added.push(name);
+        }
+    });
+
+    renderItemList(kind);
+    setFieldError(kind, skipped.length ? `Já existiam e não foram repetidos: ${skipped.join(', ')}.` : '');
+    if (added.length) {
+        showSuccess(`${added.length} ${added.length === 1 ? 'item adicionado' : 'itens adicionados'} a partir da lista colada.`);
+        scheduleAutoSave();
+    }
+    return { added, skipped };
+}
+
+function moveItem(kind, id, delta) {
+    const items = ITEM_KINDS[kind].items();
+    const from = items.findIndex(item => item.id === id);
+    const to = from + delta;
+    if (from === -1 || to < 0 || to >= items.length) return;
+
+    const [item] = items.splice(from, 1);
+    items.splice(to, 0, item);
+    renderItemList(kind);
+    scheduleAutoSave();
+
+    // O foco acompanha o item movido, para mover várias posições seguidas pelo teclado
+    const direction = delta < 0 ? 'up' : 'down';
+    const button = document.querySelector(`#${kind}-item-${id} [data-action="moveItem"][data-direction="${direction}"]`);
+    (button && !button.disabled ? button : document.querySelector(`#${kind}-item-${id} .item-name-button`))?.focus();
+}
+
+function moveItemTo(kind, id, targetId) {
+    const items = ITEM_KINDS[kind].items();
+    const from = items.findIndex(item => item.id === id);
+    const to = items.findIndex(item => item.id === targetId);
+    if (from === -1 || to === -1 || from === to) return;
+    moveItem(kind, id, to - from);
 }
 
 function addCriterion() {
@@ -127,10 +197,12 @@ function startEditingItem(kind, id) {
         const newName = input.value.trim();
         if (!newName) {
             showError(config.messages.emptyName);
+            input.focus();
             return;
         }
         if (newName !== item.name && nameExists(kind, newName)) {
             showError(config.messages.duplicateName);
+            input.focus();
             return;
         }
 
@@ -164,15 +236,22 @@ function renderItemList(kind) {
         return;
     }
 
-    list.innerHTML = items.map((item, index) => `
-        <div class="item" id="${kind}-item-${item.id}">
-            <span class="item-name-text"><strong>${index + 1}.</strong> ${escapeHtml(item.name)}</span>
+    list.innerHTML = items.map((item, index) => {
+        const name = escapeHtml(item.name);
+        const data = `data-kind="${kind}" data-id="${item.id}"`;
+        return `
+        <div class="item" id="${kind}-item-${item.id}" draggable="true" ${data}>
+            <span class="item-handle" title="Arraste para reordenar" aria-hidden="true">${icon('grip-vertical')}</span>
+            <span class="item-name-text"><strong>${index + 1}.</strong><button type="button" class="item-name-button" data-action="editItem" ${data} aria-label="Editar ${name}">${name}</button></span>
             <div class="item-actions">
-                <button class="edit-btn" data-action="editItem" data-kind="${kind}" data-id="${item.id}" aria-label="Editar ${escapeHtml(item.name)}">${icon('pencil')} Editar</button>
-                <button class="remove-btn" data-action="removeItem" data-kind="${kind}" data-id="${item.id}" aria-label="Remover ${escapeHtml(item.name)}">${icon('trash-2')} Remover</button>
+                <button type="button" class="icon-btn" data-action="moveItem" data-direction="up" ${data} aria-label="Mover ${name} para cima" ${index === 0 ? 'disabled' : ''}>${icon('arrow-up')}</button>
+                <button type="button" class="icon-btn" data-action="moveItem" data-direction="down" ${data} aria-label="Mover ${name} para baixo" ${index === items.length - 1 ? 'disabled' : ''}>${icon('arrow-down')}</button>
+                <button type="button" class="icon-btn edit-btn" data-action="editItem" ${data} aria-label="Editar ${name}">${icon('pencil')}</button>
+                <button type="button" class="icon-btn remove-btn" data-action="removeItem" ${data} aria-label="Remover ${name}">${icon('trash-2')}</button>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function updateCriteriaList() {
@@ -183,9 +262,73 @@ function updateAlternativesList() {
     renderItemList('alternative');
 }
 
+function removeItemWithUndo(kind, id) {
+    const config = ITEM_KINDS[kind];
+    const name = config.items().find(item => item.id === id)?.name ?? '';
+    const before = JSON.stringify(state);
+
+    (kind === 'criterion' ? removeCriterion : removeAlternative)(id);
+    offerUndo(`${kind === 'criterion' ? 'Critério' : 'Alternativa'} "${name}" removid${kind === 'criterion' ? 'o' : 'a'}.`, () => restoreStateSnapshot(before));
+}
+
+// Lista: Alt+↑ e Alt+↓ reordenam; arrastar pela alça também
+function setupItemListInteractions(kind) {
+    const list = document.getElementById(ITEM_KINDS[kind].listId);
+    let draggedId = null;
+
+    list.addEventListener('keydown', event => {
+        if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+        const item = event.target.closest('.item');
+        if (!item) return;
+        event.preventDefault();
+        moveItem(kind, item.dataset.id, event.key === 'ArrowUp' ? -1 : 1);
+    });
+
+    list.addEventListener('dragstart', event => {
+        const item = event.target.closest?.('.item');
+        if (!item) return;
+        draggedId = item.dataset.id;
+        item.classList.add('is-dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', draggedId);
+    });
+    list.addEventListener('dragover', event => {
+        const item = event.target.closest?.('.item');
+        if (!item || !draggedId) return;
+        event.preventDefault();
+        list.querySelectorAll('.is-drop-target').forEach(el => el.classList.remove('is-drop-target'));
+        if (item.dataset.id !== draggedId) item.classList.add('is-drop-target');
+    });
+    list.addEventListener('drop', event => {
+        const item = event.target.closest?.('.item');
+        if (!item || !draggedId) return;
+        event.preventDefault();
+        moveItemTo(kind, draggedId, item.dataset.id);
+    });
+    list.addEventListener('dragend', () => {
+        draggedId = null;
+        list.querySelectorAll('.is-dragging, .is-drop-target').forEach(el => el.classList.remove('is-dragging', 'is-drop-target'));
+    });
+
+    const input = document.getElementById(ITEM_KINDS[kind].inputId);
+    input.addEventListener('input', () => setFieldError(kind, ''));
+    input.addEventListener('paste', event => {
+        const text = event.clipboardData?.getData('text') ?? '';
+        if (!/\r?\n/.test(text.trim())) return;
+        event.preventDefault();
+        addPastedItems(kind, text);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupItemListInteractions('criterion');
+    setupItemListInteractions('alternative');
+});
+
 registerActions({
     editItem: el => startEditingItem(el.dataset.kind, el.dataset.id),
-    removeItem: el => (el.dataset.kind === 'criterion' ? removeCriterion : removeAlternative)(el.dataset.id),
+    removeItem: el => removeItemWithUndo(el.dataset.kind, el.dataset.id),
+    moveItem: el => moveItem(el.dataset.kind, el.dataset.id, el.dataset.direction === 'up' ? -1 : 1),
 });
 
 // Adiciona os critérios aceitos das sugestões da IA

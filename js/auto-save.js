@@ -24,6 +24,7 @@ function writeSavedAnalyses(analyses) {
 function scheduleAutoSave() {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(flushAutoSave, AUTO_SAVE_DELAY_MS);
+    if (state.problemTitle && JSON.stringify(state) !== lastSavedSnapshot) setSaveStatus('Salvando…');
     refreshShell();
 }
 
@@ -128,18 +129,23 @@ function openAnalysis(id) {
 function deleteAnalysis(id) {
     const analyses = readSavedAnalyses();
     const title = analyses[id]?.state?.problemTitle ?? '';
-    if (!confirm(`Excluir a análise "${title}"? Esta ação não pode ser desfeita.`)) return;
+    const removed = analyses[id];
+    const wasOpen = id === state.matrixId;
 
     delete analyses[id];
     writeSavedAnalyses(analyses);
 
     // Sem isso, a próxima alteração recriaria a análise que acabou de ser excluída
-    if (id === state.matrixId) {
-        resetApp();
-    } else {
+    if (wasOpen) resetApp();
+    renderSavedAnalyses();
+    if (wasOpen) setView('home');
+
+    offerUndo(`Análise "${title}" excluída.`, () => {
+        const current = readSavedAnalyses();
+        current[id] = removed;
+        writeSavedAnalyses(current);
         renderSavedAnalyses();
-    }
-    showSuccess(`Análise "${title}" excluída.`);
+    });
 }
 
 function renderSavedAnalyses() {

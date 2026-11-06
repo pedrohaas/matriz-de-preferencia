@@ -398,15 +398,13 @@ function removeCriterionFromStep3(id) {
     }
 
     const removedName = criterionName(id);
-    if (!confirm(`Remover o critério "${removedName}"? Os scores associados serão perdidos.`)) {
-        return;
-    }
+    const before = JSON.stringify(state);
 
     removeCriterion(id);
     state.currentCriterionIndex = Math.min(state.currentCriterionIndex, state.criteria.length - 1);
 
-    showSuccess(`Critério "${removedName}" removido com sucesso.`);
     refreshComparison();
+    offerUndo(`Critério "${removedName}" removido, com seus scores.`, () => restoreStateSnapshot(before));
 }
 
 function removeAlternativeFromStep3(id) {
@@ -416,14 +414,12 @@ function removeAlternativeFromStep3(id) {
     }
 
     const removedName = alternativeName(id);
-    if (!confirm(`Remover a alternativa "${removedName}"? Os scores associados serão recalculados.`)) {
-        return;
-    }
+    const before = JSON.stringify(state);
 
     removeAlternative(id);
 
-    showSuccess(`Alternativa "${removedName}" removida com sucesso.`);
     refreshComparison();
+    offerUndo(`Alternativa "${removedName}" removida, com seus scores.`, () => restoreStateSnapshot(before));
 }
 
 registerActions({
