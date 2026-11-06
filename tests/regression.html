@@ -22,9 +22,11 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 // ---- Condução da aplicação real, carregada em um iframe ----
 let frame = null;
 let pageWidth = 1200;
+let pageHeight = 150;
 
-async function load(width = 1200) {
+async function load(width = 1200, height = 150) {
     pageWidth = width;
+    pageHeight = height;
     // Nesta ordem: remover o iframe dispara o salvamento da análise que estava aberta
     if (frame) frame.remove();
     frame = null;
@@ -37,6 +39,7 @@ async function openPage() {
     if (frame) frame.remove();
     frame = document.createElement('iframe');
     frame.style.width = `${pageWidth}px`;
+    frame.style.height = `${pageHeight}px`;
     frame.src = '../index.html?' + Math.random();
     document.body.appendChild(frame);
     await new Promise(resolve => { frame.onload = resolve; });
@@ -740,25 +743,87 @@ function seedAnalyses(count) {
     localStorage.setItem('analisesSalvas', JSON.stringify(all));
 }
 
-test('Tela inicial mostra até 7 análises e rola para as demais', async () => {
-    for (const width of [1200, 375]) {
-        await load(width);
-        seedAnalyses(12);
+test('Tela inicial cabe inteira na janela, com a lista rolando por dentro', async () => {
+    for (const [width, height] of [[1280, 600], [1366, 650], [1920, 1000]]) {
+        await load(width, height);
+        seedAnalyses(22);
         await openPage();
         const w = frame.contentWindow;
+        const page = w.document.documentElement;
+        const label = `${width}x${height}`;
+        assert(page.scrollHeight <= page.clientHeight + 1, `${label}: sem rolagem da página (${page.scrollHeight} > ${page.clientHeight})`);
         const list = el(w, 'savedAnalysesList');
-        equal(listRows(w).length, 12, `${width}px: todas na lista`);
-        equal(list.classList.contains('is-scrollable'), true, `${width}px: rolável`);
+        equal(list.classList.contains('is-scrollable'), true, `${label}: lista rolável`);
         const bottom = list.getBoundingClientRect().bottom;
-        const fullyVisible = listRows(w).filter(r => r.getBoundingClientRect().bottom <= bottom + 1).length;
-        equal(fullyVisible, 7, `${width}px: visíveis de uma vez`);
-        equal(el(w, 'savedCount').textContent, '(12)', `${width}px: contagem`);
-        assertFits(w, `${width}px`);
+        const visible = listRows(w).filter(r => r.getBoundingClientRect().bottom <= bottom + 1).length;
+        assert(visible >= 2, `${label}: ao menos 2 análises visíveis (${visible})`);
+        const examples = el(w, 'examplesList');
+        assert(examples.getBoundingClientRect().bottom <= page.clientHeight, `${label}: exemplos visíveis`);
+        equal(examples.querySelectorAll('.example-card').length, read(w, 'EXAMPLES.length'), `${label}: todos os exemplos na faixa`);
+        assertFits(w, label);
     }
-    await load();
-    seedAnalyses(5);
+    // Com poucas análises, a lista não sobra espaço vazio nem rola
+    await load(1366, 650);
+    seedAnalyses(2);
     await openPage();
     equal(el(frame.contentWindow, 'savedAnalysesList').classList.contains('is-scrollable'), false, 'poucas análises não rolam');
+});
+
+test('No celular, a lista mostra 5 análises e a página rola normalmente', async () => {
+    await load(375, 700);
+    seedAnalyses(12);
+    await openPage();
+    const w = frame.contentWindow;
+    const list = el(w, 'savedAnalysesList');
+    equal(list.classList.contains('is-scrollable'), true, 'rolável');
+    const bottom = list.getBoundingClientRect().bottom;
+    equal(listRows(w).filter(r => r.getBoundingClientRect().bottom <= bottom + 1).length, 5, 'visíveis');
+    equal(el(w, 'savedCount').textContent, '(12)', 'contagem');
+    assertFits(w, '375px');
+});
+
+test('Exemplos em faixa horizontal com setas', async () => {
+    const w = await load(900, 700);
+    const track = el(w, 'examplesList');
+    assert(track.scrollWidth > track.clientWidth, 'faixa transborda na horizontal');
+    const nav = w.document.querySelector('.examples-nav');
+    equal(nav.hidden, false, 'setas visíveis');
+    equal(el(w, 'examplesPrev').disabled, true, 'anterior desativada no início');
+    track.scrollLeft = track.scrollWidth;
+    track.dispatchEvent(new w.Event('scroll'));
+    equal(el(w, 'examplesNext').disabled, true, 'próxima desativada no fim');
+    equal(el(w, 'examplesPrev').disabled, false, 'anterior ativa');
+});
+
+test('Passos recolhíveis liberam espaço para a matriz', async () => {
+    const w = await load(1440, 800);
+    await setup(w, ['C1', 'C2'], ['A', 'B']);
+    const panel = el(w, 'matrixPanel');
+    const before = panel.getBoundingClientRect().width;
+    const toggle = el(w, 'toggleStepper');
+    equal(toggle.getAttribute('aria-expanded'), 'true', 'expandido');
+    toggle.click();
+    equal(w.document.documentElement.classList.contains('stepper-collapsed'), true, 'recolhido');
+    equal(toggle.getAttribute('aria-expanded'), 'false', 'aria-expanded');
+    equal(toggle.getAttribute('aria-label'), 'Expandir passos', 'rótulo');
+    equal(w.getComputedStyle(w.document.querySelector('#prog-item-1 .step-text')).display, 'none', 'só números');
+    assert(panel.getBoundingClientRect().width > before + 50, `matriz mais larga (${before} → ${panel.getBoundingClientRect().width})`);
+    w.document.getElementById('prog-item-1').click();
+    equal(read(w, 'state.currentStep'), 2, 'passos continuam clicáveis');
+    await openPage();
+    equal(frame.contentWindow.document.documentElement.classList.contains('stepper-collapsed'), true, 'preferência lembrada');
+    frame.contentWindow.document.getElementById('toggleStepper').click();
+    equal(frame.contentWindow.document.documentElement.classList.contains('stepper-collapsed'), false, 'expande de novo');
+});
+
+test('Painel da matriz mostra a logo do livro com link para o site', async () => {
+    const w = await load(1440, 800);
+    setField(w, 'problemTitle', 'Teste');
+    await w.nextStep();
+    const book = w.document.querySelector('#matrixPanel .matrix-panel-book');
+    equal(book.getAttribute('href'), 'https://www.ciadufscar.com/', 'link');
+    assert(book.rel.includes('noopener') && book.target === '_blank', 'nova aba');
+    assert(book.querySelector('img').getBoundingClientRect().width > 0, 'logo visível');
 });
 
 test('Busca de análises salvas pelo título', async () => {
@@ -800,7 +865,7 @@ test('Sobre: links externos com ícones e fonte do método', async () => {
     ], 'rótulos');
     assert(social.every(a => a.querySelector('svg.icon') && a.target === '_blank' && a.rel.includes('noopener')), 'ícone e nova aba');
     const sources = [...w.document.querySelectorAll('a[href="https://www.ciadufscar.com/"]')];
-    equal(sources.length, 2, 'fonte citada no Sobre e na tela inicial');
+    equal(sources.length, 3, 'fonte citada no Sobre, na tela inicial e no painel da matriz');
     assert(sources.every(a => a.rel.includes('noopener')), 'noopener');
 });
 

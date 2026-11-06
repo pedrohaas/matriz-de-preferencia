@@ -290,6 +290,47 @@
     .home-section { margin-top: var(--space-6); }
     .home-section h2 { font-size: var(--text-xl); }
 
+    /* Tela inicial inteira na janela: a lista de análises fica com o espaço que sobra
+       e rola por dentro. Mesma área que HOME_FIT_QUERY em preferences.js. */
+    @media (min-width: 760px) and (min-height: 600px) {
+        body.view-home .home {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+            height: calc(100dvh - var(--header-height));
+            padding-top: var(--space-4);
+            padding-bottom: var(--space-4);
+        }
+        .home .home-section { margin-top: 0; }
+        .home-hero { flex-shrink: 0; grid-template-columns: 6.5rem 1fr; gap: var(--space-5); padding: var(--space-4) var(--space-5); }
+        .home-logo { width: 6.5rem; height: 6.5rem; }
+        .home-hero h1 { font-size: var(--text-xl); }
+        .home-hero p { margin-top: var(--space-1); font-size: var(--text-md); }
+        .home-actions { align-items: center; margin-top: var(--space-3); }
+        .home-hero p.home-source { margin-top: var(--space-2); }
+        .saved-analyses { display: flex; flex: 0 1 auto; flex-direction: column; min-height: 11rem; }
+        .saved-analyses .saved-analyses-note { margin-bottom: var(--space-2); }
+        .saved-analyses-list { flex: 0 1 auto; min-height: 0; overflow-y: auto; }
+        .saved-analysis { padding: var(--space-2) var(--space-4); }
+        .examples-section { flex-shrink: 0; }
+        .examples-section .saved-analyses-note { margin-bottom: var(--space-2); }
+    }
+    /* Janelas baixas: descrição do topo oculta e botões na mesma linha da fonte */
+    @media (min-width: 760px) and (min-height: 600px) and (max-height: 760px) {
+        body.view-home .home { gap: var(--space-3); padding-top: var(--space-3); padding-bottom: var(--space-3); }
+        .home-hero p:not(.home-source) { display: none; }
+        .home-logo { width: 4.5rem; height: 4.5rem; }
+        .home-hero { grid-template-columns: 4.5rem 1fr; padding: var(--space-3) var(--space-5); }
+        .home-hero-text { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-5); }
+        .home-hero-text h1 { flex-basis: 100%; }
+        .home-actions { margin-top: 0; }
+        .home-hero p.home-source { margin-top: 0; }
+        .home-section .saved-analyses-note { display: none; }
+        .saved-analyses { min-height: 9.5rem; }
+        .saved-analyses-list.is-scrollable { padding: 6px; }
+        .saved-analysis { margin-bottom: 6px; padding: 6px var(--space-3); }
+    }
+
     /* Assistente: passos | conteúdo | matriz */
     .wizard {
         display: grid;
@@ -302,6 +343,18 @@
     }
     :root.matrix-panel-off .wizard { grid-template-columns: 14rem minmax(0, 1fr); }
     :root.matrix-panel-off .matrix-panel { display: none; }
+    /* Passos recolhidos: só os números, e a matriz ganha a largura liberada */
+    :root.stepper-collapsed .wizard { grid-template-columns: 3rem minmax(0, 1fr) minmax(21rem, 32rem); }
+    :root.stepper-collapsed.matrix-panel-off .wizard { grid-template-columns: 3rem minmax(0, 1fr); }
+    :root.stepper-collapsed .stepper .step-text { display: none; }
+    :root.stepper-collapsed .stepper .step-progress-item { justify-content: center; padding: var(--space-2) 0; }
+    .stepper-toggle { display: flex; margin: 0 0 var(--space-2) auto; }
+    :root.stepper-collapsed .stepper-toggle { margin: 0 auto var(--space-2); }
+
+    .matrix-panel-book { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--border); color: var(--text-muted); font-size: var(--text-xs); text-decoration: none; }
+    .matrix-panel-book img { width: 4.5rem; height: 4.5rem; flex-shrink: 0; border-radius: var(--radius-sm); object-fit: cover; }
+    .matrix-panel-book strong { color: var(--brand-700); }
+    .matrix-panel-book:hover strong { text-decoration: underline; }
 
     .stepper { position: sticky; top: calc(var(--header-height) + var(--space-5)); }
     .stepper-list { display: flex; flex-direction: column; gap: var(--space-1); list-style: none; }
@@ -361,6 +414,8 @@
     /* Telas médias: a matriz vira gaveta inferior */
     @media (max-width: 1179px) {
         .wizard, :root.matrix-panel-off .wizard { grid-template-columns: 12.5rem minmax(0, 1fr); }
+        :root.stepper-collapsed .wizard, :root.stepper-collapsed.matrix-panel-off .wizard { grid-template-columns: 3rem minmax(0, 1fr); }
+        .matrix-panel-book { display: none; }
         .matrix-panel {
             position: fixed;
             top: auto;
@@ -397,6 +452,8 @@
 
         .wizard, :root.matrix-panel-off .wizard { display: block; padding: var(--space-3) var(--space-3) 0; }
         .stepper { position: static; margin-bottom: var(--space-4); }
+        .stepper-toggle { display: none; }
+        :root.stepper-collapsed .stepper .step-progress-item.active .step-text { display: block; }
         .stepper-list { flex-direction: row; justify-content: space-between; }
         .stepper li { flex: 0 1 auto; min-width: 0; }
         .stepper .step-progress-item { flex-direction: column; gap: var(--space-1); padding: var(--space-1); }
@@ -679,7 +736,21 @@
         .saved-search { flex-basis: 100%; }
     }
 
-    .examples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--space-3); }
+    .examples-nav { display: flex; gap: var(--space-1); }
+    .examples-nav[hidden] { display: none; }
+    .examples-nav .icon-btn:disabled { opacity: 0.35; cursor: default; background: none; }
+    .examples-track {
+        display: grid;
+        grid-auto-columns: minmax(17rem, 19rem);
+        grid-auto-flow: column;
+        gap: var(--space-3);
+        overflow-x: auto;
+        padding: 2px 2px var(--space-2);
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: 2px;
+        overscroll-behavior-x: contain;
+    }
+    .examples-track > .example-card { scroll-snap-align: start; }
     .example-card {
         display: flex;
         flex-direction: column;
@@ -694,8 +765,10 @@
     }
     .example-card:hover { border-color: var(--brand-600); box-shadow: var(--shadow-sm); }
     .example-title { color: var(--brand-900); font-weight: 600; }
+    .example-card { padding: var(--space-3) var(--space-4); }
+    .example-title, .example-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
     .example-description { color: var(--text-muted); font-size: var(--text-sm); }
-    .example-meta { margin-top: auto; padding-top: var(--space-2); color: var(--text-soft); font-size: var(--text-xs); }
+    .example-meta { margin-top: auto; padding-top: var(--space-1); color: var(--text-soft); font-size: var(--text-xs); }
 
     /* Matriz em construção */
     .matrix-panel-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }

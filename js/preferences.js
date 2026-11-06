@@ -4,6 +4,8 @@
 const PREFERENCES_KEY = 'mp.preferencias';
 // Abaixo desta largura, o painel da matriz vira uma gaveta e começa fechado
 const MATRIX_PANEL_DOCK_QUERY = '(min-width: 1180px)';
+// A partir desta área, a tela inicial cabe inteira na janela, sem rolar a página
+const HOME_FIT_QUERY = '(min-width: 760px) and (min-height: 600px)';
 
 function readPreferences() {
     try {
@@ -33,6 +35,7 @@ function applyDisplayPreferences() {
     const root = document.documentElement;
     root.classList.toggle('matrix-panel-off', !isMatrixPanelVisible());
     root.classList.toggle('presentation-mode', readPreferences().apresentacao === true);
+    root.classList.toggle('stepper-collapsed', readPreferences().passosRecolhidos === true);
 }
 
 applyDisplayPreferences();

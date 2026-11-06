@@ -30,10 +30,16 @@ function renderExamples() {
         <button type="button" class="example-card" data-action="openExample" data-id="${escapeHtml(example.id)}">
             <span class="example-title">${escapeHtml(example.dados.problema)}</span>
             <span class="example-description">${escapeHtml(example.dados.descricao)}</span>
-            <span class="example-meta">${escapeHtml(example.dados.metodo)} · ${example.dados.criterios.length} critérios · ${example.dados.alternativas.length} alternativas</span>
+            <span class="example-meta">${escapeHtml(example.dados.metodo.replace(/\s*\(.*\)$/, ''))} · ${example.dados.criterios.length} critérios · ${example.dados.alternativas.length} alternativas</span>
         </button>
     `).join('');
+    updateExamplesNav();
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('examplesList').addEventListener('scroll', updateExamplesNav, { passive: true });
+    window.addEventListener('resize', updateExamplesNav);
+});
 
 function openExample(id) {
     const example = EXAMPLES.find(item => item.id === id);
@@ -200,6 +206,33 @@ function syncDisplayToggles() {
     document.getElementById('toggleMatrixPanel').setAttribute('aria-pressed', String(matrixOn));
     const presentationOn = document.documentElement.classList.contains('presentation-mode');
     document.getElementById('togglePresentation').setAttribute('aria-pressed', String(presentationOn));
+    const collapsed = document.documentElement.classList.contains('stepper-collapsed');
+    const stepperToggle = document.getElementById('toggleStepper');
+    const label = collapsed ? 'Expandir passos' : 'Recolher passos';
+    stepperToggle.setAttribute('aria-expanded', String(!collapsed));
+    stepperToggle.setAttribute('aria-label', label);
+    stepperToggle.title = label;
+    stepperToggle.innerHTML = icon(collapsed ? 'panel-left-open' : 'panel-left-close');
+}
+
+function toggleStepper() {
+    writePreference('passosRecolhidos', !document.documentElement.classList.contains('stepper-collapsed'));
+    applyDisplayPreferences();
+    syncDisplayToggles();
+}
+
+// Exemplos em faixa horizontal: as setas avançam quase uma largura visível por vez
+function scrollExamples(direction) {
+    const track = document.getElementById('examplesList');
+    track.scrollBy({ left: direction * Math.max(track.clientWidth * 0.8, 200), behavior: 'smooth' });
+}
+
+function updateExamplesNav() {
+    const track = document.getElementById('examplesList');
+    const overflow = track.scrollWidth > track.clientWidth + 1;
+    document.querySelector('.examples-nav').hidden = !overflow;
+    document.getElementById('examplesPrev').disabled = track.scrollLeft <= 1;
+    document.getElementById('examplesNext').disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 1;
 }
 
 function toggleMatrixPanel() {
@@ -301,6 +334,8 @@ registerActions({
     openExample: el => openExample(el.dataset.id),
     toggleMatrixPanel,
     togglePresentation,
+    toggleStepper,
+    scrollExamples: el => scrollExamples(Number(el.dataset.direction)),
     openSettings,
     closeSettings,
 });

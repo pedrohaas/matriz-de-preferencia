@@ -148,8 +148,9 @@ function deleteAnalysis(id) {
     });
 }
 
-// Quantas análises aparecem de uma vez; as demais ficam a uma rolagem de distância
-const SAVED_VISIBLE_ROWS = 7;
+// Em telas pequenas, quantas análises aparecem de uma vez; as demais ficam a uma rolagem de
+// distância. Nas maiores, a lista ocupa o espaço que sobra na janela (veja HOME_FIT_QUERY).
+const SAVED_VISIBLE_ROWS = 5;
 const MIN_ANALYSES_FOR_SEARCH = 2;
 
 // Compara sem distinguir maiúsculas nem acentos
@@ -209,7 +210,14 @@ function fitSavedList() {
     const container = document.getElementById('savedAnalysesList');
     const rows = container.querySelectorAll('.saved-analysis');
     container.style.maxHeight = '';
-    const scrollable = rows.length > SAVED_VISIBLE_ROWS && container.offsetParent !== null;
+    if (container.offsetParent === null) return;
+    if (window.matchMedia(HOME_FIT_QUERY).matches) {
+        const scrollable = container.scrollHeight > container.clientHeight + 1;
+        container.classList.toggle('is-scrollable', scrollable);
+        container.tabIndex = scrollable ? 0 : -1;
+        return;
+    }
+    const scrollable = rows.length > SAVED_VISIBLE_ROWS;
     container.classList.toggle('is-scrollable', scrollable);
     container.tabIndex = scrollable ? 0 : -1;
     if (!scrollable) return;
