@@ -148,13 +148,36 @@ function deleteAnalysis(id) {
     });
 }
 
+// Quantas análises aparecem de uma vez; as demais ficam a uma rolagem de distância
+const SAVED_VISIBLE_ROWS = 7;
+const MIN_ANALYSES_FOR_SEARCH = 2;
+
+// Compara sem distinguir maiúsculas nem acentos
+const searchable = text => String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 function renderSavedAnalyses() {
     const container = document.getElementById('savedAnalysesList');
-    const entries = Object.entries(readSavedAnalyses())
+    const searchBox = document.getElementById('savedSearchBox');
+    const allEntries = Object.entries(readSavedAnalyses())
         .sort(([, a], [, b]) => String(b.savedAt).localeCompare(String(a.savedAt)));
 
-    if (entries.length === 0) {
+    document.getElementById('savedCount').textContent = allEntries.length ? `(${allEntries.length})` : '';
+    searchBox.hidden = allEntries.length < MIN_ANALYSES_FOR_SEARCH;
+    if (searchBox.hidden) document.getElementById('savedSearch').value = '';
+
+    const query = searchable(document.getElementById('savedSearch').value.trim());
+    const entries = query
+        ? allEntries.filter(([, { state: analysis }]) => searchable(analysis?.problemTitle).includes(query))
+        : allEntries;
+
+    if (allEntries.length === 0) {
         container.innerHTML = '<p class="saved-analyses-empty">Nenhuma análise salva ainda.</p>';
+        fitSavedList();
+        return;
+    }
+    if (entries.length === 0) {
+        container.innerHTML = '<p class="saved-analyses-empty">Nenhuma análise com esse título.</p>';
+        fitSavedList();
         return;
     }
 
@@ -177,7 +200,32 @@ function renderSavedAnalyses() {
             </div>
         `;
     }).join('');
+    fitSavedList();
 }
+
+// Limita a altura da lista às primeiras análises; a lista some da tela quando oculta, por isso
+// a medida é refeita ao voltar para a tela inicial e ao redimensionar a janela
+function fitSavedList() {
+    const container = document.getElementById('savedAnalysesList');
+    const rows = container.querySelectorAll('.saved-analysis');
+    container.style.maxHeight = '';
+    const scrollable = rows.length > SAVED_VISIBLE_ROWS && container.offsetParent !== null;
+    container.classList.toggle('is-scrollable', scrollable);
+    container.tabIndex = scrollable ? 0 : -1;
+    if (!scrollable) return;
+    const last = rows[SAVED_VISIBLE_ROWS - 1];
+    container.style.maxHeight = `${last.offsetTop + last.offsetHeight - rows[0].offsetTop + 2 * parseFloat(getComputedStyle(container).paddingTop)}px`;
+}
+
+document.addEventListener('input', event => {
+    if (event.target.id === 'savedSearch') {
+        renderSavedAnalyses();
+        document.getElementById('savedAnalysesList').scrollTop = 0;
+    }
+});
+window.addEventListener('resize', () => {
+    if (document.body.classList.contains('view-home')) fitSavedList();
+});
 
 // Converte as matrizes do formato anterior, que usava o título como chave.
 // Entradas sem conteúdo eram só títulos parciais gravados durante a digitação.
