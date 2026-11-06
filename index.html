@@ -6,26 +6,26 @@
     <title>Matriz de Preferência</title>
     <meta name="description" content="Ferramenta de apoio à decisão multicritério baseada no método da Matriz de Preferência.">
     <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="style.css?v=15">
+    <link rel="stylesheet" href="style.css?v=16">
 
-    <script src="js/canonical-site.js?v=15"></script>
-    <script src="js/preferences.js?v=15"></script>
+    <script src="js/canonical-site.js?v=16"></script>
+    <script src="js/preferences.js?v=16"></script>
     <script src="libs/html2canvas.min.js"></script>
-    <script src="js/utils.js?v=15"></script>
-    <script src="js/icons.js?v=15"></script>
-    <script src="js/state.js?v=15"></script>
-    <script src="js/decision-core.js?v=15"></script>
-    <script src="js/data-input.js?v=15"></script>
-    <script src="js/swing-weighting.js?v=15"></script>
-    <script src="js/comparison.js?v=15"></script>
-    <script src="js/ai-suggestions.js?v=15"></script>
-    <script src="js/decision-logic.js?v=15"></script>
-    <script src="js/report.js?v=15"></script>
-    <script src="js/export-utils.js?v=15"></script>
-    <script src="js/examples.js?v=15"></script>
-    <script src="js/shell.js?v=15"></script>
-    <script src="js/main.js?v=15"></script>
-    <script src="js/auto-save.js?v=15"></script>
+    <script src="js/utils.js?v=16"></script>
+    <script src="js/icons.js?v=16"></script>
+    <script src="js/state.js?v=16"></script>
+    <script src="js/decision-core.js?v=16"></script>
+    <script src="js/data-input.js?v=16"></script>
+    <script src="js/swing-weighting.js?v=16"></script>
+    <script src="js/comparison.js?v=16"></script>
+    <script src="js/ai-suggestions.js?v=16"></script>
+    <script src="js/decision-logic.js?v=16"></script>
+    <script src="js/report.js?v=16"></script>
+    <script src="js/export-utils.js?v=16"></script>
+    <script src="js/examples.js?v=16"></script>
+    <script src="js/shell.js?v=16"></script>
+    <script src="js/main.js?v=16"></script>
+    <script src="js/auto-save.js?v=16"></script>
 </head>
 <body class="view-home">
     <a class="skip-link" href="#mainContent">Pular para o conteúdo</a>
@@ -69,15 +69,20 @@
                     <button type="button" class="btn btn-secondary btn-large" data-action="chooseImportFile" data-icon="upload">Importar JSON</button>
                     <input type="file" id="importFile" accept=".json,application/json" hidden data-change="importAnalysisFile">
                 </div>
+                <p class="home-source">Mais sobre o método em <a href="https://www.ciadufscar.com/" target="_blank" rel="noopener">ciadufscar.com</a></p>
             </div>
         </section>
 
         <section class="home-section saved-analyses" aria-labelledby="savedTitle">
             <div class="saved-analyses-header">
-                <h2 id="savedTitle">Análises salvas</h2>
+                <h2 id="savedTitle">Análises salvas <span class="saved-count" id="savedCount"></span></h2>
+                <div class="saved-search" id="savedSearchBox" hidden>
+                    <span class="saved-search-icon" data-icon="search"></span>
+                    <input type="search" id="savedSearch" placeholder="Buscar pelo título" aria-label="Buscar análise salva pelo título" autocomplete="off">
+                </div>
             </div>
-            <p class="saved-analyses-note">Ficam guardadas apenas neste navegador. Para levar a outro dispositivo, use "Salvar JSON" na tomada de decisão.</p>
-            <div id="savedAnalysesList"></div>
+            <p class="saved-analyses-note">Ficam guardadas apenas neste navegador. Para levar a outro dispositivo, exporte o JSON na tomada de decisão.</p>
+            <div class="saved-analyses-list" id="savedAnalysesList" role="region" aria-labelledby="savedTitle"></div>
         </section>
 
         <section class="home-section" aria-labelledby="examplesTitle">
@@ -337,8 +342,24 @@
         <section class="drawer-section" aria-labelledby="aboutTitle">
             <h3 id="aboutTitle" data-icon="info">Sobre</h3>
             <p>Ferramenta acadêmica de apoio à decisão multicritério baseada no método da Matriz de Preferência.</p>
-            <p>Desenvolvida por <a href="https://www.linkedin.com/in/opedroalves/" target="_blank" rel="noopener">Pedro Henrique Alves de Araujo Silva</a> e <a href="https://www.linkedin.com/in/laura-rieko-imai/" target="_blank" rel="noopener">Laura Rieko Marçal Imai</a>.</p>
-            <p><a href="https://github.com/pedrohaas/matriz-de-preferencia" target="_blank" rel="noopener">Código-fonte no GitHub</a> · <a href="https://github.com/pedrohaas/matriz-de-preferencia/blob/main/LICENSE" target="_blank" rel="noopener">Licença MIT</a></p>
+            <p>Para saber mais sobre o método: <a class="about-site" href="https://www.ciadufscar.com/" target="_blank" rel="noopener" data-icon="external-link">ciadufscar.com</a></p>
+            <h4 class="about-subtitle">Desenvolvimento</h4>
+            <ul class="about-people">
+                <li>
+                    <span>Pedro Henrique Alves de Araujo Silva</span>
+                    <span class="about-links">
+                        <a class="social-link" href="https://www.linkedin.com/in/opedroalves/" target="_blank" rel="noopener" aria-label="LinkedIn de Pedro Henrique Alves de Araujo Silva" title="LinkedIn" data-icon="linkedin"></a>
+                        <a class="social-link" href="https://github.com/pedrohaas" target="_blank" rel="noopener" aria-label="GitHub de Pedro Henrique Alves de Araujo Silva" title="GitHub" data-icon="github"></a>
+                    </span>
+                </li>
+                <li>
+                    <span>Laura Rieko Marçal Imai</span>
+                    <span class="about-links">
+                        <a class="social-link" href="https://www.linkedin.com/in/laura-rieko-imai/" target="_blank" rel="noopener" aria-label="LinkedIn de Laura Rieko Marçal Imai" title="LinkedIn" data-icon="linkedin"></a>
+                    </span>
+                </li>
+            </ul>
+            <p class="about-footer"><a class="about-repo" href="https://github.com/pedrohaas/matriz-de-preferencia" target="_blank" rel="noopener" data-icon="github">Código-fonte</a> · <a href="https://github.com/pedrohaas/matriz-de-preferencia/blob/main/LICENSE" target="_blank" rel="noopener">Licença MIT</a></p>
         </section>
     </aside>
 
