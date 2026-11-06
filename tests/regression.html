@@ -31,6 +31,7 @@ async function load(width = 1200, height = 150) {
     if (frame) frame.remove();
     frame = null;
     localStorage.clear();
+    sessionStorage.clear();
     return openPage();
 }
 
@@ -685,13 +686,50 @@ test('Mudar o título mantém uma só análise, e títulos iguais não se sobres
     equal(listRows(w).length, 2, 'linhas');
 });
 
+test('Recarregar a página mantém a análise e o passo abertos', async () => {
+    let w = await load();
+    await goToWeights(w);
+    rankSum(w, [2, 1, 3]);
+    w = await openPage();
+    equal(w.document.body.classList.contains('view-wizard'), true, 'continua no assistente');
+    equal(read(w, 'state.currentStep'), 5, 'mesmo passo');
+    equal(read(w, 'state.problemTitle'), 'Teste', 'mesma análise');
+    equal(read(w, 'criterionIds()').map(id => el(w, `ranksum_${id}`).value), ['2', '1', '3'], 'formulário preenchido');
+    // Quem estava na tela inicial continua nela
+    w.goHome();
+    w = await openPage();
+    equal(w.document.body.classList.contains('view-home'), true, 'tela inicial mantida');
+    // Análise nova, ainda sem título, volta ao primeiro passo
+    w.newAnalysis();
+    w = await openPage();
+    equal(w.document.body.classList.contains('view-wizard'), true, 'análise nova no assistente');
+    equal(read(w, 'state.currentStep'), 1, 'primeiro passo');
+    // Análise excluída em outra aba não é recriada
+    w.goHome();
+    await goToWeights(w);
+    const id = read(w, 'state.matrixId');
+    w.flushAutoSave();
+    frame.contentWindow.dispatchEvent(new Event('pagehide'));
+    const all = savedAnalyses();
+    delete all[id];
+    localStorage.setItem('analisesSalvas', JSON.stringify(all));
+    frame.contentWindow.removeEventListener('pagehide', frame.contentWindow.flushAutoSave);
+    w = await openPage();
+    equal(read(w, 'state.currentStep'), 1, 'sem a análise, começa do zero');
+});
+
 test('Retoma no passo de pesos com os formulários preenchidos', async () => {
     let w = await load();
     await goToWeights(w);
     rankSum(w, [2, 1, 3]);
     w.flushAutoSave();
+    // Em uma aba nova (sem sessão), começa na tela inicial
+    frame.remove();
+    frame = null;
+    sessionStorage.clear();
     w = await openPage();
     equal(read(w, 'state.currentStep'), 1, 'começa na tela inicial');
+    equal(w.document.body.classList.contains('view-home'), true, 'tela inicial');
     openFromList(w, 'Teste');
     equal(read(w, 'state.currentStep'), 5, 'passo');
     equal(el(w, 'weightingMethod').value, 'ranksum', 'método');

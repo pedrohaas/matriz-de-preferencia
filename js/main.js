@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     renderSavedAnalyses();
     renderExamples();
     syncDisplayToggles();
+    restoreSession();
     refreshShell();
 });
 

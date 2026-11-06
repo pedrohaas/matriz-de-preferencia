@@ -55,6 +55,43 @@ function flushAutoSave() {
 // Não perde a última alteração ao fechar ou recarregar a página
 window.addEventListener('pagehide', flushAutoSave);
 
+// Recarregar a página volta à análise e ao passo em que se estava. Fica na sessão da aba:
+// uma aba nova continua abrindo na tela inicial.
+const SESSION_KEY = 'mp.sessao';
+
+function rememberSession() {
+    try {
+        const view = document.body.classList.contains('view-wizard') ? 'wizard' : 'home';
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ view, id: state.matrixId }));
+    } catch (error) {
+        // Sem armazenamento de sessão, recarregar volta à tela inicial
+    }
+}
+window.addEventListener('pagehide', rememberSession);
+
+function restoreSession() {
+    let session;
+    try {
+        session = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+    } catch (error) {
+        return;
+    }
+    if (session?.view !== 'wizard') return;
+
+    const stored = readSavedAnalyses()[session.id];
+    // Análise nova, ainda sem título e por isso não salva: volta ao primeiro passo
+    if (!stored) {
+        resetApp();
+        return;
+    }
+    try {
+        const analysis = hydrateState(stored.state);
+        loadAnalysis(analysis, analysis.currentStep);
+    } catch (error) {
+        console.error('Não foi possível reabrir a análise da sessão:', error);
+    }
+}
+
 function setSaveStatus(text, tone = '') {
     const status = document.getElementById('saveStatus');
     status.textContent = text;
